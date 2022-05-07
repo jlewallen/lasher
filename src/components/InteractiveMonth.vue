@@ -19,6 +19,11 @@ export default {
     InteractiveExpense,
     AccountTree,
   },
+  data(): { expanded: boolean } {
+    return {
+      expanded: this.openExpanded,
+    };
+  },
   computed: {
     expensesByPath(): { [index: string]: Expense } {
       return _.fromPairs(this.month.expenses.map((e: Expense) => [e.name, e]));
@@ -28,6 +33,9 @@ export default {
     },
   },
   methods: {
+    onClick() {
+      this.expanded = !this.expanded;
+    },
     childExpenses(prefix: string): Expense[] {
       return Object.keys(this.expensesByPath)
         .filter((path) => {
@@ -43,18 +51,20 @@ export default {
 
 <template>
   <div class="month">
-    <div class="title">{{ month.title }}</div>
-    <AccountTree :accounts="accounts" :open-expanded="openExpanded">
-      <template #path="{ path }">
-        <PathSummary :path="path" :expenses="childExpenses(path)" />
-      </template>
-      <template #leaf="{ path }">
-        <InteractiveExpense
-          :expense="expensesByPath[path]"
-          :open-expanded="false"
-        />
-      </template>
-    </AccountTree>
+    <div class="title" @click="onClick">{{ month.title }}</div>
+    <div class="expanded-month" v-if="expanded">
+      <AccountTree :accounts="accounts" :open-expanded="openExpanded">
+        <template #path="{ path }">
+          <PathSummary :path="path" :expenses="childExpenses(path)" />
+        </template>
+        <template #leaf="{ path }">
+          <InteractiveExpense
+            :expense="expensesByPath[path]"
+            :open-expanded="false"
+          />
+        </template>
+      </AccountTree>
+    </div>
   </div>
 </template>
 
@@ -62,5 +72,6 @@ export default {
 .title {
   font-size: 18pt;
   font-weight: bold;
+  cursor: pointer;
 }
 </style>
