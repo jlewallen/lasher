@@ -8,7 +8,7 @@ defineProps<{
 
 <script lang="ts">
 import _ from "lodash";
-import Currency from "@/components/Currency.vue";
+import Currency from "./Currency.vue";
 
 export default {
   components: {

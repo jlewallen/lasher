@@ -2,7 +2,7 @@
 import _ from "lodash";
 import { Month, Finances } from "@/model";
 
-import InteractiveMonth from "@/components/InteractiveMonth.vue";
+import InteractiveMonth from "./InteractiveMonth.vue";
 
 export default {
   components: { InteractiveMonth },
