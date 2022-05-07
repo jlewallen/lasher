@@ -14,7 +14,7 @@ export default {
     };
   },
   mounted(): void {
-    fetch("jacob.json")
+    fetch("ledger.json")
       .then((response) => {
         return response.json();
       })
