@@ -33,6 +33,17 @@ class Transaction {
 
 class Balances {
   constructor(public readonly balances: { [index: string]: number }) {}
+
+  single(): number {
+    const keys = Object.keys(this.balances);
+    if (keys.length > 1) {
+      throw new Error("unable to return single balance from multiple");
+    }
+    if (keys.length == 1) {
+      return this.balances[keys[0]];
+    }
+    return 0;
+  }
 }
 
 type MapTransactionFn = (t: Transaction) => Transaction[];
@@ -86,6 +97,11 @@ class Transactions {
       return _.sum(postings.map((p) => p.value));
     });
     return new Balances(totals);
+  }
+
+  balance(): number {
+    const balances = this.balances();
+    return balances.single();
   }
 }
 
@@ -145,11 +161,30 @@ function sortExpenses(expenses: Expense[]): Expense[] {
   return _.reverse(_.sortBy(expenses, (e: Expense) => e.total));
 }
 
+export class Glance {
+  constructor(
+    public readonly available: number,
+    public readonly emergency: number
+  ) {}
+}
+
 export class Finances {
   constructor(public readonly txs: Transactions) {}
 
   static build(data: TransactionResponse[]) {
     return new Finances(Transactions.build(data));
+  }
+
+  glance(): Glance {
+    const availableTxs = this.txs.map(
+      transactionsMatchingPath(".+:available$")
+    );
+    const emergencyTxs = this.txs.map(
+      transactionsMatchingPath(".+:emergency$")
+    );
+    const available = availableTxs.balance();
+    const emergency = emergencyTxs.balance();
+    return new Glance(available, emergency);
   }
 
   months(): Month[] {

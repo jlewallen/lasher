@@ -1,16 +1,19 @@
 <script lang="ts">
 import _ from "lodash";
-import { Month, Finances } from "@/model";
+import { Finances, Month, Glance } from "@/model";
 
+import Glance from "./Glance.vue";
 import InteractiveMonth from "./InteractiveMonth.vue";
 
 export default {
-  components: { InteractiveMonth },
+  components: { Glance, InteractiveMonth },
   data(): {
     months: Month[];
+    glance: null | Glance;
   } {
     return {
       months: [],
+      glance: null,
     };
   },
   mounted(): void {
@@ -21,6 +24,7 @@ export default {
       .then((data) => {
         const finances = Finances.build(data);
         this.months = finances.months();
+        this.glance = finances.glance();
       });
   },
 };
@@ -28,6 +32,7 @@ export default {
 
 <template>
   <main>
+    <Glance :glance="glance" v-if="glance" />
     <div class="months">
       <div v-for="(month, i) in months" v-bind:key="month.key">
         <InteractiveMonth :month="month" :open-expanded="i == 0" />

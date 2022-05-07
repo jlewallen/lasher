@@ -20,17 +20,11 @@ export default {
 
 <style scoped>
 .currency-value {
-  color: #efefaa;
   color: #009854;
-  color: #69b076;
-}
-.currency-value {
-  font-size: 16pt;
-  display: inline-block;
-  color: #efefaa;
   color: #009854;
-  color: #69b076;
-  color: #ea5550;
   color: #b1585c;
+  color: #efefaa;
+  color: #ea5550;
+  color: #69b076;
 }
 </style>

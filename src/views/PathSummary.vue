@@ -30,9 +30,16 @@ export default {
 
 <template>
   <div class="path-summary">
-    {{ path }} <span class="path-total"><Currency :value="total" /></span>
+    <span class="name">{{ path }}</span>
+    <span class="total"><Currency :value="total" /></span>
   </div>
 </template>
 
 <style scoped>
+.name {
+  padding-right: 0.5em;
+}
+.total {
+  font-size: 16pt;
+}
 </style>

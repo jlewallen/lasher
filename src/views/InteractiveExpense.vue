@@ -29,7 +29,7 @@ export default {
 
 <template>
   <div class="expense" @click="onClick">
-    {{ expense.name }}
+    <div class="expense-name">{{ expense.name }}</div>
     <div class="expense-total"><Currency :value="expense.total" /></div>
     <div class="expense-expanded" v-if="expanded">
       <TransactionLedger :transactions="expense.transactions" />
@@ -42,8 +42,12 @@ export default {
   cursor: pointer;
 }
 
+.expense-name {
+  display: inline-block;
+  padding-right: 0.5em;
+}
+
 .expense-total {
-  font-size: 16pt;
   display: inline-block;
 }
 </style>
