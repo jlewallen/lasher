@@ -25,6 +25,10 @@ class Transaction {
     public readonly cleared: boolean,
     public readonly postings: Posting[]
   ) {}
+
+  get prettyDate(): string {
+    return dateformat(this.date, "yyyy/mm/dd");
+  }
 }
 
 class Balances {
@@ -131,6 +135,14 @@ export class Month {
   get key(): string {
     return this.date.toISOString();
   }
+
+  get title(): string {
+    return dateformat(this.date, "mmmm yyyy", true);
+  }
+}
+
+function sortExpenses(expenses: Expense[]): Expense[] {
+  return _.reverse(_.sortBy(expenses, (e: Expense) => e.total));
 }
 
 export class Finances {
@@ -142,23 +154,26 @@ export class Finances {
 
   months(): Month[] {
     const monthly = this.txs.monthly();
-    return _.map(monthly.transactions, (value, key) => {
-      const expenseTxs = value.map(transactionsMatchingPath("^expenses"));
-      console.log(key, new Date(key), value, expenseTxs);
-      const expenses = _.values(
-        _.mapValues(
-          expenseTxs.balances().balances,
-          (total: number, name: string) => {
-            return new Expense(
-              name,
-              total,
-              expenseTxs.map(transactionsMatchingPath(name))
-            );
-          }
-        )
-      );
-      console.log(expenses);
-      return new Month(new Date(key), expenses);
-    });
+    return _.reverse(
+      _.map(monthly.transactions, (value: Transactions, yearMonth: string) => {
+        const expenseTxs = value.map(transactionsMatchingPath("^expenses"));
+        const expenses = sortExpenses(
+          _.values(
+            _.mapValues(
+              expenseTxs.balances().balances,
+              (total: number, name: string) => {
+                return new Expense(
+                  name,
+                  total,
+                  expenseTxs.map(transactionsMatchingPath(name))
+                );
+              }
+            )
+          )
+        );
+        console.log(yearMonth, { expenses: expenses });
+        return new Month(new Date(yearMonth), expenses);
+      })
+    );
   }
 }

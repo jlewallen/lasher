@@ -8,15 +8,38 @@ defineProps<{
 
 <template>
   <div class="transactions">
-    <div v-for="(tx, i) in transactions.transactions" v-bind:key="i">
-      {{ tx }}
-    </div>
+    <table class="">
+      <tbody>
+        <tr v-for="(tx, i) in transactions.transactions" v-bind:key="i">
+          <td class="posting-date">{{ tx.prettyDate }}</td>
+          <td class="posting-payee">{{ tx.payee }}</td>
+          <td>
+            <div v-for="(p, j) in tx.postings" v-bind:key="j">
+              <span class="posting-account">
+                {{ p.account }}
+              </span>
+              <span class="posting-value">${{ p.value }}</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <style scoped>
-.title {
-  font-size: 18pt;
-  font-weight: bold;
+.posting-date {
+  color: #404040;
+}
+
+.posting-account {
+  padding-right: 1em;
+  color: #404040;
+}
+
+.posting-value {
+  color: #efefaa;
+  color: #009854;
+  color: #69b076;
 }
 </style>

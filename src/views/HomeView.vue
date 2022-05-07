@@ -1,6 +1,5 @@
 <script lang="ts">
 import _ from "lodash";
-import dateformat from "dateformat";
 import { Month, Finances } from "@/model";
 
 import InteractiveMonth from "@/components/InteractiveMonth.vue";

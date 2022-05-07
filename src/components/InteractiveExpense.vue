@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { Month, Expenses } from "@/model";
-import TransactionLedger from "./TransactionLedger.vue";
+import type { Expense } from "@/model";
 
 defineProps<{
   expense: Expense;
+  openExpanded: boolean;
 }>();
 </script>
 
 <script lang="ts">
-import { Expense } from "@/model";
+import TransactionLedger from "./TransactionLedger.vue";
 
 export default {
   data(): { expanded: boolean } {
-    return { expanded: false };
+    return { expanded: this.openExpanded };
   },
   mounted(): void {
     console.log("mounted");
@@ -22,6 +22,9 @@ export default {
       this.expanded = !this.expanded;
       console.log(this.expense.key, "toggled");
     },
+  },
+  components: {
+    TransactionLedger,
   },
 };
 </script>
@@ -42,8 +45,12 @@ export default {
 }
 
 .expense-total {
-  color: #efefaa;
   font-size: 16pt;
   display: inline-block;
+  color: #efefaa;
+  color: #009854;
+  color: #69b076;
+  color: #ea5550;
+  color: #b1585c;
 }
 </style>
