@@ -6,6 +6,18 @@ defineProps<{
 }>();
 </script>
 
+<script lang="ts">
+import _ from "lodash";
+
+export default {
+  methods: {
+    formatCurrency(value: number): string {
+      return Intl.NumberFormat("en-US").format(value);
+    },
+  },
+};
+</script>
+
 <template>
   <div class="transactions">
     <table class="">
@@ -18,7 +30,7 @@ defineProps<{
               <span class="posting-account">
                 {{ p.account }}
               </span>
-              <span class="posting-value">${{ p.value }}</span>
+              <span class="posting-value">${{ formatCurrency(p.value) }}</span>
             </div>
           </td>
         </tr>

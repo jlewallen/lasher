@@ -9,19 +9,20 @@ defineProps<{
 
 <script lang="ts">
 import TransactionLedger from "./TransactionLedger.vue";
+import Currency from "./Currency.vue";
 
 export default {
+  components: {
+    Currency,
+    TransactionLedger,
+  },
   data(): { expanded: boolean } {
     return { expanded: this.openExpanded };
   },
   methods: {
     onClick() {
       this.expanded = !this.expanded;
-      console.log(this.expense.key, "toggled");
     },
-  },
-  components: {
-    TransactionLedger,
   },
 };
 </script>
@@ -29,7 +30,7 @@ export default {
 <template>
   <div class="expense" @click="onClick">
     {{ expense.name }}
-    <div class="expense-total">${{ expense.total.toFixed(2) }}</div>
+    <div class="expense-total"><Currency :value="expense.total" /></div>
     <div class="expense-expanded" v-if="expanded">
       <TransactionLedger :transactions="expense.transactions" />
     </div>
@@ -44,10 +45,5 @@ export default {
 .expense-total {
   font-size: 16pt;
   display: inline-block;
-  color: #efefaa;
-  color: #009854;
-  color: #69b076;
-  color: #ea5550;
-  color: #b1585c;
 }
 </style>

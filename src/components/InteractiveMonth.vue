@@ -3,6 +3,7 @@ import type { Expense, Month } from "@/model";
 
 defineProps<{
   month: Month;
+  openExpanded: boolean;
 }>();
 </script>
 
@@ -43,7 +44,7 @@ export default {
 <template>
   <div class="month">
     <div class="title">{{ month.title }}</div>
-    <AccountTree :accounts="accounts">
+    <AccountTree :accounts="accounts" :open-expanded="openExpanded">
       <template #path="{ path }">
         <PathSummary :path="path" :expenses="childExpenses(path)" />
       </template>

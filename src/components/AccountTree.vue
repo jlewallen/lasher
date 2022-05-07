@@ -1,14 +1,19 @@
 <script setup lang="ts">
 defineProps<{
   accounts: string[];
+  openExpanded: boolean;
 }>();
 </script>
 
 <script lang="ts">
 import _ from "lodash";
-import AccountTreeNode, { TreeNode, Scope } from "./AccountTreeNode.vue";
+import type { Scope } from "./AccountTreeNode.vue";
+import AccountTreeNode, { TreeNode } from "./AccountTreeNode.vue";
 
 export default {
+  components: {
+    AccountTreeNode,
+  },
   data(): { root: TreeNode } {
     const root = new TreeNode("", "");
     const tree = this.accounts.reduce((previous: Scope, account: string) => {
@@ -33,7 +38,11 @@ export default {
 
 <template>
   <div class="account-tree">
-    <AccountTreeNode :node="root" :open-expanded="true">
+    <AccountTreeNode
+      :node="root"
+      :open-expanded="true"
+      :open-recursively="openExpanded"
+    >
       <template #path="{ path }">
         <slot name="path" :path="path" />
       </template>

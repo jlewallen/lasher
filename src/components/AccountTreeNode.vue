@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   node: TreeNode;
+  openRecursively: boolean;
   openExpanded: boolean;
 }>();
 </script>
@@ -32,6 +33,15 @@ export default {
     isLeaf(): boolean {
       return Object.keys(this.node.children).length == 0;
     },
+    openChild(child: TreeNode): boolean {
+      if (this.openRecursively) {
+        return (
+          Object.keys(this.node.children).length == 1 ||
+          Object.keys(child.children).length == 1
+        );
+      }
+      return false;
+    },
   },
 };
 </script>
@@ -43,10 +53,8 @@ export default {
         v-for="child in node.children"
         v-bind:key="child.name"
         :node="child"
-        :open-expanded="
-          Object.keys(node.children).length == 1 ||
-          Object.keys(child.children).length == 1
-        "
+        :open-expanded="openChild(child)"
+        :open-recursively="true"
       >
         <template #path="{ path }">
           <slot name="path" :path="path" />

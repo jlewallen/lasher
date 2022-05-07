@@ -29,8 +29,8 @@ export default {
 <template>
   <main>
     <div class="months">
-      <div v-for="month in months" v-bind:key="month.key">
-        <InteractiveMonth :month="month" />
+      <div v-for="(month, i) in months" v-bind:key="month.key">
+        <InteractiveMonth :month="month" :open-expanded="i == 0" />
       </div>
     </div>
   </main>
