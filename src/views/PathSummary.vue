@@ -4,6 +4,7 @@ import type { Expense } from "@/model";
 defineProps<{
   path: string;
   expenses: Expense[];
+  showPath: boolean;
 }>();
 </script>
 
@@ -30,7 +31,7 @@ export default {
 
 <template>
   <div class="path-summary">
-    <span class="name">{{ path }}</span>
+    <span class="name" v-if="showPath">{{ path }}</span>
     <span class="total"><Currency :value="total" /></span>
   </div>
 </template>

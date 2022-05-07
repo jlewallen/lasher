@@ -51,11 +51,24 @@ export default {
 
 <template>
   <div class="month">
-    <div class="title" @click="onClick">{{ month.title }}</div>
+    <div class="title" @click="onClick">
+      {{ month.title }}
+
+      <PathSummary
+        path="expenses"
+        :expenses="month.expenses"
+        v-if="expanded"
+        :show-path="false"
+      />
+    </div>
     <div class="expanded-month" v-if="expanded">
       <AccountTree :accounts="accounts" :open-expanded="openExpanded">
         <template #path="{ path }">
-          <PathSummary :path="path" :expenses="childExpenses(path)" />
+          <PathSummary
+            :path="path"
+            :expenses="childExpenses(path)"
+            :show-path="true"
+          />
         </template>
         <template #leaf="{ path }">
           <InteractiveExpense
@@ -73,5 +86,9 @@ export default {
   font-size: 18pt;
   font-weight: bold;
   cursor: pointer;
+}
+
+.title .path-summary {
+  display: inline-block;
 }
 </style>
