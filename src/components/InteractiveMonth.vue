@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import _ from "lodash";
-import PathSummary from "./PathSummary.vue";
-import InteractiveExpense from "./InteractiveExpense.vue";
-import AccountTree from "./AccountTree.vue";
 import type { Expense, Month } from "@/model";
 
 defineProps<{
@@ -11,7 +7,17 @@ defineProps<{
 </script>
 
 <script lang="ts">
+import _ from "lodash";
+import PathSummary from "./PathSummary.vue";
+import InteractiveExpense from "./InteractiveExpense.vue";
+import AccountTree from "./AccountTree.vue";
+
 export default {
+  components: {
+    PathSummary,
+    InteractiveExpense,
+    AccountTree,
+  },
   computed: {
     expensesByPath(): { [index: string]: Expense } {
       return _.fromPairs(this.month.expenses.map((e: Expense) => [e.name, e]));
@@ -44,7 +50,7 @@ export default {
       <template #leaf="{ path }">
         <InteractiveExpense
           :expense="expensesByPath[path]"
-          :open-expanded="true"
+          :open-expanded="false"
         />
       </template>
     </AccountTree>

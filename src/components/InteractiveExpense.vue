@@ -14,9 +14,6 @@ export default {
   data(): { expanded: boolean } {
     return { expanded: this.openExpanded };
   },
-  mounted(): void {
-    console.log("mounted");
-  },
   methods: {
     onClick() {
       this.expanded = !this.expanded;

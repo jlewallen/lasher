@@ -5,6 +5,7 @@ import { Month, Finances } from "@/model";
 import InteractiveMonth from "@/components/InteractiveMonth.vue";
 
 export default {
+  components: { InteractiveMonth },
   data(): {
     months: Month[];
   } {
@@ -22,7 +23,6 @@ export default {
         this.months = finances.months();
       });
   },
-  components: { InteractiveMonth },
 };
 </script>
 

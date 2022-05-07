@@ -43,7 +43,10 @@ export default {
         v-for="child in node.children"
         v-bind:key="child.name"
         :node="child"
-        :open-expanded="Object.keys(node.children).length == 1"
+        :open-expanded="
+          Object.keys(node.children).length == 1 ||
+          Object.keys(child.children).length == 1
+        "
       >
         <template #path="{ path }">
           <slot name="path" :path="path" />

@@ -13,7 +13,7 @@ import _ from "lodash";
 export default {
   computed: {
     total(): number {
-      return _.sum(this.expenses.map((e) => e.total));
+      return _.sum(this.expenses.map((e: Expense) => e.total));
     },
   },
 };
