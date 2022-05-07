@@ -8,12 +8,11 @@ defineProps<{
 
 <script lang="ts">
 import _ from "lodash";
+import Currency from "@/components/Currency.vue";
 
 export default {
-  methods: {
-    formatCurrency(value: number): string {
-      return Intl.NumberFormat("en-US").format(value);
-    },
+  components: {
+    Currency,
   },
 };
 </script>
@@ -30,7 +29,7 @@ export default {
               <span class="posting-account">
                 {{ p.account }}
               </span>
-              <span class="posting-value">${{ formatCurrency(p.value) }}</span>
+              <span class="posting-value"><Currency :value="p.value" /></span>
             </div>
           </td>
         </tr>
