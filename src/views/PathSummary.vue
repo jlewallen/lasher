@@ -21,11 +21,6 @@ export default {
       return _.sum(this.expenses.map((e: Event) => e.total));
     },
   },
-  methods: {
-    formatCurrency(value: number): string {
-      return Intl.NumberFormat("en-US").format(value);
-    },
-  },
 };
 </script>
 
