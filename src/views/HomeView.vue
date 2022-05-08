@@ -25,7 +25,6 @@ export default {
         const finances = Finances.build(data);
         this.months = finances.months();
         this.glance = finances.glance();
-        this.savingsBurden = finances.savingsBurden();
       });
   },
 };

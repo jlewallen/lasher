@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Expense, Month } from "@/model";
+import type { Event, Month } from "@/model";
 
 defineProps<{
   month: Month;
@@ -25,8 +25,8 @@ export default {
     };
   },
   computed: {
-    expensesByPath(): { [index: string]: Expense } {
-      return _.fromPairs(this.month.expenses.map((e: Expense) => [e.name, e]));
+    expensesByPath(): { [index: string]: Event } {
+      return _.fromPairs(this.month.expenses.map((e: Event) => [e.name, e]));
     },
     accounts(): string[] {
       return Object.keys(this.expensesByPath);
@@ -36,7 +36,7 @@ export default {
     onClick() {
       this.expanded = !this.expanded;
     },
-    childExpenses(prefix: string): Expense[] {
+    childEvents(prefix: string): Event[] {
       return Object.keys(this.expensesByPath)
         .filter((path) => {
           return path.startsWith(prefix);
@@ -66,7 +66,7 @@ export default {
         <template #path="{ path }">
           <PathSummary
             :path="path"
-            :expenses="childExpenses(path)"
+            :expenses="childEvents(path)"
             :show-path="true"
           />
         </template>
@@ -90,5 +90,6 @@ export default {
 
 .title .path-summary {
   display: inline-block;
+  padding-right: 0.5em;
 }
 </style>

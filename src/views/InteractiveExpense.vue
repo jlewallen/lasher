@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Expense } from "@/model";
+import type { Event } from "@/model";
 
 defineProps<{
-  expense: Expense;
+  expense: Event;
   openExpanded: boolean;
 }>();
 </script>

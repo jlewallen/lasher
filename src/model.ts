@@ -130,7 +130,7 @@ function transactionsMatchingPath(pattern: string): MapTransactionFn {
   };
 }
 
-export class Expense {
+export class Event {
   constructor(
     public readonly name: string,
     public readonly total: number,
@@ -145,7 +145,8 @@ export class Expense {
 export class Month {
   constructor(
     public readonly date: Date,
-    public readonly expenses: Expense[]
+    public readonly expenses: Event[],
+    public readonly savings: Event[]
   ) {}
 
   get key(): string {
@@ -157,8 +158,8 @@ export class Month {
   }
 }
 
-function sortExpenses(expenses: Expense[]): Expense[] {
-  return _.reverse(_.sortBy(expenses, (e: Expense) => e.total));
+function sortEvents(expenses: Event[]): Event[] {
+  return _.reverse(_.sortBy(expenses, (e: Event) => e.total));
 }
 
 export class Glance {
@@ -166,6 +167,23 @@ export class Glance {
     public readonly available: number,
     public readonly emergency: number
   ) {}
+}
+
+function generateEvents(eventTxs: Transactions): Event[] {
+  return sortEvents(
+    _.values(
+      _.mapValues(
+        eventTxs.balances().balances,
+        (total: number, name: string) => {
+          return new Event(
+            name,
+            total,
+            eventTxs.map(transactionsMatchingPath(name))
+          );
+        }
+      )
+    )
+  );
 }
 
 export class Finances {
@@ -191,23 +209,14 @@ export class Finances {
     const monthly = this.txs.monthly();
     return _.reverse(
       _.map(monthly.transactions, (value: Transactions, yearMonth: string) => {
-        const expenseTxs = value.map(transactionsMatchingPath("^expenses"));
-        const expenses = sortExpenses(
-          _.values(
-            _.mapValues(
-              expenseTxs.balances().balances,
-              (total: number, name: string) => {
-                return new Expense(
-                  name,
-                  total,
-                  expenseTxs.map(transactionsMatchingPath(name))
-                );
-              }
-            )
-          )
+        const expenses = generateEvents(
+          value.map(transactionsMatchingPath("^expenses"))
         );
-        console.log(yearMonth, { expenses: expenses });
-        return new Month(new Date(yearMonth), expenses);
+        const savings = generateEvents(
+          value.map(transactionsMatchingPath("allocations:checking:savings"))
+        );
+        console.log(yearMonth, { expenses, savings });
+        return new Month(new Date(yearMonth), expenses, savings);
       })
     );
   }

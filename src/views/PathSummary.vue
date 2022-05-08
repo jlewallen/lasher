@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Expense } from "@/model";
+import type { Event } from "@/model";
 
 defineProps<{
   path: string;
-  expenses: Expense[];
+  expenses: Event[];
   showPath: boolean;
 }>();
 </script>
@@ -18,7 +18,7 @@ export default {
   },
   computed: {
     total(): number {
-      return _.sum(this.expenses.map((e: Expense) => e.total));
+      return _.sum(this.expenses.map((e: Event) => e.total));
     },
   },
   methods: {
