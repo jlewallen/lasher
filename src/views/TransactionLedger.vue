@@ -26,7 +26,7 @@ export default {
           <td class="posting-payee">{{ tx.payee }}</td>
           <td>
             <div v-for="(p, j) in tx.postings" v-bind:key="j">
-              <span class="posting-account">
+              <span class="posting-account" v-show="false">
                 {{ p.account }}
               </span>
               <span class="posting-value"><Currency :value="p.value" /></span>
@@ -46,11 +46,5 @@ export default {
 .posting-account {
   padding-right: 1em;
   color: #404040;
-}
-
-.posting-value {
-  color: #efefaa;
-  color: #009854;
-  color: #69b076;
 }
 </style>
