@@ -8,7 +8,9 @@ defineProps<{
 export default {
   methods: {
     formatCurrency(value: number): string {
-      return Intl.NumberFormat("en-US").format(value);
+      return Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(
+        value
+      );
     },
   },
 };
