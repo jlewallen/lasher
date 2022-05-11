@@ -5,6 +5,7 @@ interface TransactionResponse {
   date: string;
   payee: string;
   cleared: boolean;
+  note: string;
   postings: { account: string; value: number; note: string }[];
 }
 
@@ -23,6 +24,7 @@ class Transaction {
     public readonly date: Date,
     public readonly payee: string,
     public readonly cleared: boolean,
+    public readonly note: string,
     public readonly postings: Posting[]
   ) {}
 
@@ -65,6 +67,7 @@ class Transactions {
           new Date(row.date),
           row.payee,
           row.cleared,
+          row.note,
           postings
         );
       })
@@ -119,12 +122,18 @@ class GroupedTransactions {
   }
 }
 
-function transactionsMatchingPath(pattern: string): MapTransactionFn {
+function transactionsMatchingPath(
+  pattern: string,
+  options: { excludeOtherPostings: boolean } = { excludeOtherPostings: true }
+): MapTransactionFn {
   const re = new RegExp(pattern);
   return (t: Transaction): Transaction[] => {
     const postings = t.postings.filter((p) => re.test(p.account));
     if (postings.length > 0) {
-      return [new Transaction(t.date, t.payee, t.cleared, postings)];
+      if (options.excludeOtherPostings) {
+        return [new Transaction(t.date, t.payee, t.cleared, t.note, postings)];
+      }
+      return [new Transaction(t.date, t.payee, t.cleared, t.note, t.postings)];
     }
     return [];
   };
@@ -209,13 +218,18 @@ export class Finances {
     const monthly = this.txs.monthly();
     return _.reverse(
       _.map(monthly.transactions, (value: Transactions, yearMonth: string) => {
+        const allocations = value.map(
+          transactionsMatchingPath("^allocations", {
+            excludeOtherPostings: false,
+          })
+        );
         const expenses = generateEvents(
           value.map(transactionsMatchingPath("^expenses"))
         );
         const savings = generateEvents(
           value.map(transactionsMatchingPath("allocations:checking:savings"))
         );
-        console.log(yearMonth, { expenses, savings });
+        console.log(yearMonth, { expenses, savings, allocations });
         return new Month(new Date(yearMonth), expenses, savings);
       })
     );

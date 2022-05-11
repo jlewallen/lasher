@@ -22,12 +22,16 @@ export default {
     <table class="">
       <tbody>
         <tr v-for="(tx, i) in transactions.transactions" v-bind:key="i">
-          <td class="posting-date">{{ tx.prettyDate }}</td>
-          <td class="posting-payee">{{ tx.payee }}</td>
+          <td class="tx-date">{{ tx.prettyDate }}</td>
+          <td class="tx-payee">{{ tx.payee }}</td>
+          <td class="tx-note">{{ tx.note }}</td>
           <td>
             <div v-for="(p, j) in tx.postings" v-bind:key="j">
               <span class="posting-account" v-show="false">
                 {{ p.account }}
+              </span>
+              <span class="posting-note" v-show="true">
+                {{ p.note }}
               </span>
               <span class="posting-value"><Currency :value="p.value" /></span>
             </div>
@@ -39,12 +43,17 @@ export default {
 </template>
 
 <style scoped>
-.posting-date {
+.tx-date {
   color: #404040;
 }
 
 .posting-account {
   padding-right: 1em;
   color: #404040;
+}
+
+.posting-note {
+  padding-right: 1em;
+  color: #3f4e93;
 }
 </style>
