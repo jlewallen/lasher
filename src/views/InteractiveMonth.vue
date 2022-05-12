@@ -92,4 +92,8 @@ export default {
   display: inline-block;
   padding-right: 0.5em;
 }
+
+::v-deep .tree-node {
+  line-height: 2.2em;
+}
 </style>
