@@ -123,12 +123,14 @@ class GroupedTransactions {
 }
 
 function transactionsMatchingPath(
-  pattern: string,
+  patterns: string[],
   options: { excludeOtherPostings: boolean } = { excludeOtherPostings: true }
 ): MapTransactionFn {
-  const re = new RegExp(pattern);
+  const expressions = patterns.map((p) => new RegExp(p));
   return (t: Transaction): Transaction[] => {
-    const postings = t.postings.filter((p) => re.test(p.account));
+    const postings = _.flatten(
+      expressions.map((re) => t.postings.filter((p) => re.test(p.account)))
+    );
     if (postings.length > 0) {
       if (options.excludeOtherPostings) {
         return [new Transaction(t.date, t.payee, t.cleared, t.note, postings)];
@@ -187,7 +189,7 @@ function generateEvents(eventTxs: Transactions): Event[] {
           return new Event(
             name,
             total,
-            eventTxs.map(transactionsMatchingPath(name))
+            eventTxs.map(transactionsMatchingPath([name]))
           );
         }
       )
@@ -204,10 +206,10 @@ export class Finances {
 
   glance(): Glance {
     const availableTxs = this.txs.map(
-      transactionsMatchingPath(".+:available$")
+      transactionsMatchingPath([".+:available$"])
     );
     const emergencyTxs = this.txs.map(
-      transactionsMatchingPath(".+:emergency$")
+      transactionsMatchingPath([".+:emergency$"])
     );
     const available = availableTxs.balance();
     const emergency = emergencyTxs.balance();
@@ -219,15 +221,15 @@ export class Finances {
     return _.reverse(
       _.map(monthly.transactions, (value: Transactions, yearMonth: string) => {
         const allocations = value.map(
-          transactionsMatchingPath("^allocations", {
+          transactionsMatchingPath(["^allocations"], {
             excludeOtherPostings: false,
           })
         );
         const expenses = generateEvents(
-          value.map(transactionsMatchingPath("^expenses"))
+          value.map(transactionsMatchingPath(["^expenses"]))
         );
         const savings = generateEvents(
-          value.map(transactionsMatchingPath("allocations:checking:savings"))
+          value.map(transactionsMatchingPath(["allocations:checking:savings"]))
         );
         console.log(yearMonth, { expenses, savings, allocations });
         return new Month(new Date(yearMonth), expenses, savings);
