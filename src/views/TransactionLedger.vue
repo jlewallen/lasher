@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Transactions } from "@/model";
+import type { Transactions, Transaction, Posting } from "@/model";
 
 defineProps<{
-  transactions: Transactions;
+  transactions: Transactions | Transaction[];
+  filter: (p: Posting) => boolean;
 }>();
 </script>
 
@@ -21,16 +22,25 @@ export default {
   <div class="transactions">
     <table class="">
       <tbody>
-        <tr v-for="(tx, i) in transactions.transactions" v-bind:key="i">
+        <tr
+          v-for="(tx, i) in _.isArray(transactions)
+            ? transactions
+            : transactions.transactions"
+          v-bind:key="i"
+        >
           <td class="tx-date">{{ tx.prettyDate }}</td>
-          <td class="tx-payee">{{ tx.payee }}</td>
+          <td class="tx-payee">{{ tx.prettyPayee }}</td>
           <td class="tx-note">{{ tx.note }}</td>
           <td>
-            <div v-for="(p, j) in tx.postings" v-bind:key="j">
-              <span class="posting-account" v-show="false">
+            <div
+              v-for="(p, j) in tx.postings"
+              v-bind:key="j"
+              v-bind:class="{ hidden: !filter(p) }"
+            >
+              <span class="posting-account" v-show="true">
                 {{ p.account }}
               </span>
-              <span class="posting-note" v-show="true">
+              <span class="posting-note" v-show="false">
                 {{ p.note }}
               </span>
               <span class="posting-value"><Currency :value="p.value" /></span>
@@ -47,6 +57,14 @@ export default {
   color: #404040;
 }
 
+.tx-date {
+  vertical-align: top;
+}
+
+.tx-payee {
+  vertical-align: top;
+}
+
 .posting-account {
   padding-right: 1em;
   color: #404040;
@@ -55,5 +73,9 @@ export default {
 .posting-note {
   padding-right: 1em;
   color: #3f4e93;
+}
+
+.hidden {
+  display: none;
 }
 </style>

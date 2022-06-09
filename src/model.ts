@@ -1,6 +1,6 @@
 import _ from "lodash";
 import dateformat from "dateformat";
-import * as variableDiff from "variable-diff";
+// import * as variableDiff from "variable-diff";
 
 interface TransactionResponse {
   date: string;
@@ -33,6 +33,19 @@ class Transaction {
 
   get prettyDate(): string {
     return dateformat(this.date, "yyyy/mm/dd");
+  }
+
+  get prettyPayee(): string {
+    return this.payee.replace(/#\S+#/, "");
+  }
+
+  get allReferences(): string[] {
+    const m = /#(\S+)#/.exec(this.payee);
+    return m ? m[1].split(",") : [];
+  }
+
+  get references(): string[] {
+    return this.allReferences.filter((mid) => mid.indexOf("_") < 0);
   }
 
   tagged(tag: string): boolean {
@@ -123,7 +136,28 @@ class Balances {
 type MapTransactionFn = (t: Transaction) => Transaction[];
 
 class Transactions {
-  constructor(public readonly transactions: Transaction[]) {}
+  readonly byMid_: { [index: string]: Transaction };
+  readonly references_: { [index: string]: Transaction[] };
+
+  constructor(public readonly transactions: Transaction[]) {
+    this.byMid_ = _(transactions.map((tx) => [tx.mid, tx]));
+    this.references_ = _(
+      transactions.map((tx) =>
+        tx.references.map((reference) => {
+          return {
+            mid: reference,
+            tx: tx,
+          };
+        })
+      )
+    )
+      .flatten()
+      .groupBy((row: { mid: string; tx: Transaction }) => row.mid)
+      .mapValues((rows: { mid: string; tx: Transaction }[]) =>
+        rows.map((row) => row.tx)
+      )
+      .value();
+  }
 
   get timeWindow(): TimeWindow {
     const dates = this.transactions.map((t) => t.date);
@@ -152,6 +186,17 @@ class Transactions {
         );
       })
     );
+  }
+
+  references(mid: string): Transaction[] {
+    if (this.references_[mid]) {
+      return this.references_[mid];
+    }
+    return [];
+  }
+
+  find(mids: string[]): Transaction[] {
+    return mids.map((mid) => this.byMid_[mid]).filter((maybe) => maybe);
   }
 
   excludeTagged(tag: string): Transactions {
@@ -324,8 +369,112 @@ export class Velocity {
   }
 }
 
+export const isExpense = (path: string): boolean => {
+  return path.startsWith("expense:");
+};
+
+export const isIncome = (path: string): boolean => {
+  return path.startsWith("income:");
+};
+
+export const isAllocation = (path: string): boolean => {
+  return path.startsWith("allocations:");
+};
+
+export const isReserved = (path: string): boolean => {
+  return path.endsWith(":reserved");
+};
+
+export const isVirtual = (path: string): boolean => {
+  return (
+    isAllocation(path) ||
+    isReserved(path) ||
+    isIncome(path) ||
+    isExpense(path) ||
+    path.startsWith("receivable:")
+  );
+};
+
+export const isPhysical = (path: string): boolean => {
+  return !isVirtual(path);
+};
+
 export class Income {
-  constructor(public readonly tx: Transaction) {}
+  constructor(
+    public readonly tx: Transaction,
+    public readonly everything: Transactions
+  ) {}
+
+  private get mid(): string {
+    if (!this.tx.mid) throw new Error();
+    return this.tx.mid;
+  }
+
+  get key(): string {
+    return this.mid;
+  }
+
+  get deposited(): number {
+    return _.sum(
+      this.tx.postings.filter((p) => isPhysical(p.account)).map((p) => p.value)
+    );
+  }
+
+  get references(): Transaction[] {
+    return this.everything.references(this.mid);
+  }
+
+  get allocations(): Posting[] {
+    const references = _.flatten(this.references.map((tx) => tx.postings));
+    const fromReferences = references.filter((p: Posting) =>
+      isAllocation(p.account)
+    );
+    const ourselves = this.tx.postings.filter((p) => isAllocation(p.account));
+    return [...ourselves, ...fromReferences];
+  }
+
+  get expensesPaidBack(): Transaction[] {
+    const paybacks = this.references.filter((tx) =>
+      tx.payee.startsWith("payback")
+    );
+    const paybackReferences = paybacks.map((payback) => {
+      const references = _.uniq(
+        _.flatten(
+          payback.references.map((mid, index) =>
+            this.everything.references(mid).map((tx) => {
+              return {
+                tx,
+                index,
+              };
+            })
+          )
+        )
+      );
+      console.log("payback", payback.payee, payback.references, references);
+      return {
+        payback,
+        references,
+      };
+    });
+    console.log("payback-refs", paybackReferences);
+    return paybacks;
+  }
+
+  get allocationAccounts(): string[] {
+    return this.tx.postings.map((p) => p.account).filter(isAllocation);
+  }
+
+  get physicalAccounts(): string[] {
+    return this.tx.postings.map((p) => p.account).filter(isPhysical);
+  }
+
+  get prettyDate(): string {
+    return dateformat(this.tx.date, "mmmm yyyy", true);
+  }
+
+  get title(): string {
+    return `${this.prettyDate} ${this.tx.payee}`;
+  }
 }
 
 export class Finances {
@@ -349,7 +498,9 @@ export class Finances {
 
   incomes(): Income[] {
     const incomeTxs = this.txs
-      .map(transactionsMatchingPath(["^income:"]))
+      .map(
+        transactionsMatchingPath(["^income:"], { excludeOtherPostings: false })
+      )
       .excluding((tx) => {
         return /\S+ interest/.test(tx.payee);
       })
@@ -357,10 +508,12 @@ export class Finances {
         return /dividend/.test(tx.payee);
       });
 
-    return incomeTxs.transactions.map((tx) => {
-      console.log("income:", tx);
-      return new Income(tx);
-    });
+    return _.reverse(
+      incomeTxs.transactions.map((tx) => {
+        console.log("income:", tx);
+        return new Income(tx, this.txs);
+      })
+    );
   }
 
   months(): Month[] {

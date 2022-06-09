@@ -4,9 +4,14 @@ import { Finances, Month, Income, Glance } from "@/model";
 
 import Glance from "./Glance.vue";
 import InteractiveMonth from "./InteractiveMonth.vue";
+import InteractiveIncome from "./InteractiveIncome.vue";
 
 export default {
-  components: { Glance, InteractiveMonth },
+  components: {
+    Glance,
+    InteractiveMonth,
+    InteractiveIncome,
+  },
   data(): {
     months: Month[];
     incomes: Income[];
@@ -36,6 +41,11 @@ export default {
 <template>
   <main>
     <Glance :glance="glance" v-if="glance" />
+    <div class="incomes">
+      <div v-for="income in incomes" v-bind:key="income.key">
+        <InteractiveIncome :income="income" />
+      </div>
+    </div>
     <div class="months">
       <div v-for="(month, i) in months" v-bind:key="month.key">
         <InteractiveMonth :month="month" :open-expanded="i == 0" />
