@@ -1,6 +1,6 @@
 <script lang="ts">
 import _ from "lodash";
-import { Finances, Month, Glance } from "@/model";
+import { Finances, Month, Income, Glance } from "@/model";
 
 import Glance from "./Glance.vue";
 import InteractiveMonth from "./InteractiveMonth.vue";
@@ -9,10 +9,12 @@ export default {
   components: { Glance, InteractiveMonth },
   data(): {
     months: Month[];
+    incomes: Income[];
     glance: null | Glance;
   } {
     return {
       months: [],
+      incomes: [],
       glance: null,
     };
   },
@@ -24,6 +26,7 @@ export default {
       .then((data) => {
         const finances = Finances.build(data);
         this.months = finances.months();
+        this.incomes = finances.incomes();
         this.glance = finances.glance();
       });
   },

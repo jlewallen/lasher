@@ -2,7 +2,7 @@
   "name": "lweb",
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --force",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --port 5050",
     "test:unit": "vitest --environment jsdom",
@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "dateformat": "^5.0.3",
+    "diff-json": "^2.0.0",
     "lodash": "^4.17.21",
     "pinia": "^2.0.13",
+    "variable-diff": "^2.0.2",
     "vue": "^3.2.33",
     "vue-router": "^4.0.14"
   },
