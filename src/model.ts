@@ -17,6 +17,40 @@ export type StringPredicate = (s: string) => boolean;
 
 export type PostingPredicate = (p: Posting) => boolean;
 
+export const isExpense = (path: string): boolean => {
+  return path.startsWith("expenses:");
+};
+
+export const isIncome = (path: string): boolean => {
+  return path.startsWith("income:");
+};
+
+export const isAllocation = (path: string): boolean => {
+  return path.startsWith("allocations:");
+};
+
+export const isReserved = (path: string): boolean => {
+  return path.endsWith(":reserved");
+};
+
+export const isVirtual = (path: string): boolean => {
+  return (
+    isAllocation(path) ||
+    isReserved(path) ||
+    isIncome(path) ||
+    isExpense(path) ||
+    path.startsWith("receivable:")
+  );
+};
+
+export const isPhysical = (path: string): boolean => {
+  return !isVirtual(path);
+};
+
+export const rankAccount = (path: string): number => {
+  return 0;
+};
+
 export class Posting {
   constructor(
     public readonly account: string,
@@ -36,7 +70,11 @@ export class Transaction {
   ) {}
 
   get magnitude(): number {
-    return _.sum(this.postings.map((p) => (p.value > 0 ? p.value : 0)));
+    return this.magnitudeOf((p) => p.value > 0);
+  }
+
+  magnitudeOf(predicate: (p: Posting) => boolean): number {
+    return _.sum(this.postings.filter(predicate).map((p) => p.value));
   }
 
   get prettyDate(): string {
@@ -377,45 +415,96 @@ export class Velocity {
   }
 }
 
-export const isExpense = (path: string): boolean => {
-  return path.startsWith("expenses:");
-};
-
-export const isIncome = (path: string): boolean => {
-  return path.startsWith("income:");
-};
-
-export const isAllocation = (path: string): boolean => {
-  return path.startsWith("allocations:");
-};
-
-export const isReserved = (path: string): boolean => {
-  return path.endsWith(":reserved");
-};
-
-export const isVirtual = (path: string): boolean => {
-  return (
-    isAllocation(path) ||
-    isReserved(path) ||
-    isIncome(path) ||
-    isExpense(path) ||
-    path.startsWith("receivable:")
-  );
-};
-
-export const isPhysical = (path: string): boolean => {
-  return !isVirtual(path);
-};
-
 export class MoneyBucket {
   constructor(public readonly name: string, public readonly total: number) {}
 }
 
 export class Payback {
   constructor(
-    public readonly payback: Transaction,
-    public readonly original: Transaction
+    public readonly original: Transaction,
+    public readonly paybacks: Transaction[]
   ) {}
+
+  get buckets(): MoneyBucket[] {
+    const originalMagnitude = Math.abs(
+      this.original.magnitudeOf((p) => isPhysical(p.account))
+    );
+    const expenses = this.original.postings
+      .filter((p) => isExpense(p.account))
+      .filter((p) => p.account != "expenses:cash:tips");
+    const paybackMagnitude = _.sum(this.paybacks.map((p) => p.magnitude));
+
+    console.log(
+      `B: ${this.original.prettyDate} ${this.original.prettyPayee} ${originalMagnitude} ${paybackMagnitude}`
+    );
+    console.log(
+      `B: ${this.original.prettyDate} ${this.original.prettyPayee} org`,
+      this.original.postings
+    );
+    console.log(
+      `B: ${this.original.prettyDate} ${this.original.prettyPayee} pay`,
+      this.paybacks
+    );
+
+    if (Math.abs(originalMagnitude - paybackMagnitude) < 0.01) {
+      console.log(
+        `B: ${this.original.prettyDate} ${this.original.prettyPayee} same`
+      );
+      return expenses.map((p) => new MoneyBucket(p.account, p.value));
+    }
+
+    if (expenses.length == 1) {
+      console.log(
+        `B: ${this.original.prettyDate} ${this.original.prettyPayee} single`
+      );
+      return [new MoneyBucket(expenses[0].account, paybackMagnitude)];
+    }
+
+    const exactMatches = _.flatten(
+      this.paybacks
+        .map((payback) => {
+          const maybe = expenses.filter(
+            (expense) => Math.abs(expense.value) == payback.magnitude
+          );
+          return {
+            payback: payback,
+            buckets: maybe.map(
+              (expense) => new MoneyBucket(expense.account, payback.magnitude)
+            ),
+          };
+        })
+        .filter((em) => em.buckets.length > 0)
+    );
+    const remainingPaybacks = _.difference(
+      this.paybacks,
+      exactMatches.map((em: { payback: Payback }) => em.payback)
+    );
+
+    const exactBuckets = _.flatten(
+      exactMatches.map((em: { buckets: MoneyBucket[] }) => em.buckets)
+    );
+
+    if (remainingPaybacks.length == 0) {
+      console.log(
+        `B: ${this.original.prettyDate} ${this.original.prettyPayee} exact`,
+        exactMatches
+      );
+    } else {
+      console.log(
+        `B: ${this.original.prettyDate} ${this.original.prettyPayee} fail`,
+        remainingPaybacks
+      );
+    }
+    return [...exactBuckets, new MoneyBucket(this.name, this.magnitude)];
+  }
+
+  get name(): string {
+    return this.original.payee;
+  }
+
+  get magnitude(): number {
+    return _.sum(this.paybacks.map((tx: Transaction) => tx.magnitude));
+  }
 }
 
 export type NameAndValue = { name: string; value: number };
@@ -508,11 +597,16 @@ export class Income {
   get spending(): MoneyBucket[] {
     const paybacks = this.expensePaybacks;
 
+    const buckets = _.flatten(paybacks.map((payback) => payback.buckets));
+
+    return buckets;
+
+    // TODO This should include the actual amount borrowed. See "gas" example.
+
+    /*
     const paybackTransactions = _.uniq(
       paybacks.map((payback) => payback.original)
     );
-
-    // TODO This should include the actual amount borrowed. See "gas" example.
 
     const spending = this.filterPostingsGroupAndSum(
       paybackTransactions,
@@ -521,6 +615,7 @@ export class Income {
     );
 
     return spending;
+    */
   }
 
   get expensePaybacks(): Payback[] {
@@ -563,6 +658,7 @@ export class Income {
           original: Transaction;
           paybacks: Transaction[];
         }) => {
+          /*
           const magnitude = _.sum(paybacks.map((tx) => tx.magnitude));
           const maybeBorrow = original.postings.filter(
             (p: Posting) => Math.abs(p.value) == magnitude
@@ -579,8 +675,9 @@ export class Income {
               maybeBorrow
             );
           }
+          */
 
-          return new Payback(paybacks[0], original);
+          return new Payback(original, paybacks);
         }
       )
       .value();
@@ -637,7 +734,7 @@ export class Finances {
     return _.reverse(
       incomeTxs.transactions.map((tx) => {
         const income = new Income(tx, this.txs);
-        console.log("income:", income.expensePaybacks);
+        // console.log("income:", income.expensePaybacks);
         return income;
       })
     );
