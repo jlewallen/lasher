@@ -451,10 +451,6 @@ export class Payback {
       .filter((p) => p.account != "expenses:cash:tips");
     const paybackMagnitude = _.sum(this.paybacks.map((p) => p.magnitude));
 
-    // log(`${originalMagnitude} ${paybackMagnitude}`);
-    // log(`org`, this.original.postings);
-    // log(`pay`, this.paybacks);
-
     if (Math.abs(originalMagnitude - paybackMagnitude) < 0.01) {
       // log(`same`);
       return expenses.map((p) => new MoneyBucket(p.account, p.value));
@@ -515,6 +511,7 @@ export class Payback {
 }
 
 export type NameAndValue = { name: string; value: number };
+
 export type PaybackAndOriginal = {
   payback: Transaction;
   original: Transaction;
@@ -591,14 +588,29 @@ export class Income {
   }
 
   get preallocated(): MoneyBucket[] {
-    const preallocations = this.filterPostingsGroupAndSum(
-      this.references.filter((tx: Transaction) =>
-        tx.payee.startsWith("preallocating")
-      ),
+    const references = this.references;
+
+    const simplePreallocations = references.filter((tx: Transaction) =>
+      tx.payee.startsWith("preallocating")
+    );
+
+    const preallocatedBuckets = this.filterPostingsGroupAndSum(
+      simplePreallocations,
       (p) => isAllocation(p.account)
     );
 
-    return preallocations;
+    const otherPreallocations = _.difference(
+      references.filter((tx) => tx.references.length == 1),
+      simplePreallocations
+    );
+
+    const otherBuckets = this.filterPostingsGroupAndSum(
+      otherPreallocations,
+      (p) => isAllocation(p.account),
+      { assumeOnePosting: false }
+    );
+
+    return [...otherBuckets, ...preallocatedBuckets];
   }
 
   get spending(): MoneyBucket[] {
