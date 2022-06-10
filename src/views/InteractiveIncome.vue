@@ -47,6 +47,7 @@ export default {
     </div>
     <div>
       <MoneyBuckets :buckets="income.preallocated" />
+      <MoneyBuckets :buckets="income.spending" />
     </div>
   </div>
 </template>

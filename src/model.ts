@@ -13,7 +13,11 @@ interface TransactionResponse {
 
 type TransactionsResponse = TransactionResponse[];
 
-class Posting {
+export type StringPredicate = (s: string) => boolean;
+
+export type PostingPredicate = (p: Posting) => boolean;
+
+export class Posting {
   constructor(
     public readonly account: string,
     public readonly value: number,
@@ -21,7 +25,7 @@ class Posting {
   ) {}
 }
 
-class Transaction {
+export class Transaction {
   constructor(
     public readonly date: Date,
     public readonly payee: string,
@@ -30,6 +34,10 @@ class Transaction {
     public readonly postings: Posting[],
     public readonly mid: string | undefined = undefined
   ) {}
+
+  get magnitude(): number {
+    return _.sum(this.postings.map((p) => (p.value > 0 ? p.value : 0)));
+  }
 
   get prettyDate(): string {
     return dateformat(this.date, "yyyy/mm/dd");
@@ -92,7 +100,7 @@ class Transaction {
     return ranked[0];
   }
 
-  posting(predicate: (n: string) => boolean): Posting | null {
+  posting(predicate: StringPredicate): Posting | null {
     const matching = this.postings.filter((p) => predicate(p.account));
     if (matching.length == 1) {
       return matching[0];
@@ -370,7 +378,7 @@ export class Velocity {
 }
 
 export const isExpense = (path: string): boolean => {
-  return path.startsWith("expense:");
+  return path.startsWith("expenses:");
 };
 
 export const isIncome = (path: string): boolean => {
@@ -410,6 +418,16 @@ export class Payback {
   ) {}
 }
 
+export type NameAndValue = { name: string; value: number };
+export type PaybackAndOriginal = {
+  payback: Transaction;
+  original: Transaction;
+};
+
+export const isTaxes = (tx: Transaction): boolean => {
+  return tx.payee.indexOf("taxes on") >= 0;
+};
+
 export class Income {
   constructor(
     public readonly tx: Transaction,
@@ -444,30 +462,76 @@ export class Income {
     return [...ourselves, ...fromReferences];
   }
 
-  get preallocated(): MoneyBucket[] {
-    const preallocations = _(this.references)
-      .filter((tx: Transaction) => tx.payee.startsWith("preallocating"))
+  private filterPostingsGroupAndSum(
+    transactions: Transaction[],
+    predicate: PostingPredicate,
+    options: { assumeOnePosting: boolean } = { assumeOnePosting: true }
+  ): MoneyBucket[] {
+    return _(transactions)
       .map((tx: Transaction) => {
-        const allocation = tx.postings.filter((p) => isAllocation(p.account));
-        if (allocation.length != 1) throw new Error("assumption");
-        return {
-          name: allocation[0].account,
-          value: allocation[0].value,
-        };
+        const postings = tx.postings.filter(predicate);
+        if (options.assumeOnePosting) {
+          if (postings.length != 1) {
+            console.log(`error: Assumption:`, tx, postings);
+            throw new Error("assumption");
+          }
+        } else {
+        }
+        return postings.map((posting) => {
+          return {
+            name: posting.account,
+            value: posting.value,
+          };
+        });
       })
-      .groupBy((row) => row.name)
-      .map((rows, name: string) => {
-        return new MoneyBucket(name, _.sum(rows.map((r) => r.value)));
-      })
+      .flatten()
+      .groupBy((row: NameAndValue) => row.name)
+      .map(
+        (rows: NameAndValue[], name: string) =>
+          new MoneyBucket(name, _.sum(rows.map((r: NameAndValue) => r.value)))
+      )
+      .sortBy((mb: MoneyBucket) => mb.name)
       .value();
+  }
+
+  get preallocated(): MoneyBucket[] {
+    const preallocations = this.filterPostingsGroupAndSum(
+      this.references.filter((tx: Transaction) =>
+        tx.payee.startsWith("preallocating")
+      ),
+      (p) => isAllocation(p.account)
+    );
 
     return preallocations;
   }
 
-  get expensesPaidBack(): Transaction[] {
-    const paybacks = this.references
-      .filter((tx) => tx.payee.startsWith("payback"))
-      .map((payback) => {
+  get spending(): MoneyBucket[] {
+    const paybacks = this.expensePaybacks;
+
+    const paybackTransactions = _.uniq(
+      paybacks.map((payback) => payback.original)
+    );
+
+    // TODO This should include the actual amount borrowed. See "gas" example.
+
+    const spending = this.filterPostingsGroupAndSum(
+      paybackTransactions,
+      (p) => isExpense(p.account),
+      { assumeOnePosting: false }
+    );
+
+    return spending;
+  }
+
+  get expensePaybacks(): Payback[] {
+    // First get all payback transactions.
+    const paybackTransactions = this.references.filter((tx) =>
+      tx.payee.startsWith("payback")
+    );
+
+    // Group them by their "original" withrawl.
+    const byOriginal = _(paybackTransactions)
+      .map((payback: Transaction) => {
         const originals = _.uniq(
           this.everything.find(_.take(payback.references, 1))
         );
@@ -476,28 +540,50 @@ export class Income {
           throw new Error("payback: Missing original");
         }
 
-        /*
-        const references = _.uniq(
-          _.flatten(
-            _.take(payback.references, 1).map((mid: string, index: number) =>
-              this.everything
-                .references(mid)
-                .filter((tx) => tx != payback)
-                .map((tx) => {
-                  return {
-                    tx,
-                    index,
-                  };
-                })
-            )
-          ).map((row: { tx: Transaction }) => row.tx)
-        );
-        */
+        return {
+          payback: payback,
+          original: originals[0],
+        };
+      })
+      .groupBy((row: PaybackAndOriginal) => row.original.mid)
+      .map((rows: PaybackAndOriginal[]) => {
+        return {
+          original: rows[0].original,
+          paybacks: rows.map((row) => row.payback).filter((tx) => !isTaxes(tx)),
+        };
+      })
+      .value();
 
-        return new Payback(payback, originals[0]);
-      });
+    return _(byOriginal)
+      .map(
+        ({
+          original,
+          paybacks,
+        }: {
+          original: Transaction;
+          paybacks: Transaction[];
+        }) => {
+          const magnitude = _.sum(paybacks.map((tx) => tx.magnitude));
+          const maybeBorrow = original.postings.filter(
+            (p: Posting) => Math.abs(p.value) == magnitude
+          );
 
-    return _.uniq(paybacks.map((payback) => payback.original));
+          if (maybeBorrow.length == 0) {
+            console.log(
+              original.prettyPayee,
+              magnitude,
+              // payback,
+              {
+                original: original,
+              },
+              maybeBorrow
+            );
+          }
+
+          return new Payback(paybacks[0], original);
+        }
+      )
+      .value();
   }
 
   get allocationAccounts(): string[] {
@@ -550,8 +636,9 @@ export class Finances {
 
     return _.reverse(
       incomeTxs.transactions.map((tx) => {
-        // console.log("income:", tx);
-        return new Income(tx, this.txs);
+        const income = new Income(tx, this.txs);
+        console.log("income:", income.expensePaybacks);
+        return income;
       })
     );
   }
