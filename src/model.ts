@@ -417,6 +417,16 @@ export class Velocity {
 
 export class MoneyBucket {
   constructor(public readonly name: string, public readonly total: number) {}
+
+  static merge(buckets: MoneyBucket[]): MoneyBucket[] {
+    return _(buckets)
+      .groupBy((b: MoneyBucket) => b.name)
+      .map((group: MoneyBucket[], name: string) => {
+        return new MoneyBucket(name, _.sum(group.map((mb) => mb.total)));
+      })
+      .sortBy((mb: MoneyBucket) => mb.name)
+      .value();
+  }
 }
 
 export class Payback {
@@ -426,6 +436,13 @@ export class Payback {
   ) {}
 
   get buckets(): MoneyBucket[] {
+    const log = (...args: unknown[]) => {
+      console.log(
+        `B: ${this.original.prettyDate} ${this.original.prettyPayee}`,
+        ...args
+      );
+    };
+
     const originalMagnitude = Math.abs(
       this.original.magnitudeOf((p) => isPhysical(p.account))
     );
@@ -434,29 +451,17 @@ export class Payback {
       .filter((p) => p.account != "expenses:cash:tips");
     const paybackMagnitude = _.sum(this.paybacks.map((p) => p.magnitude));
 
-    console.log(
-      `B: ${this.original.prettyDate} ${this.original.prettyPayee} ${originalMagnitude} ${paybackMagnitude}`
-    );
-    console.log(
-      `B: ${this.original.prettyDate} ${this.original.prettyPayee} org`,
-      this.original.postings
-    );
-    console.log(
-      `B: ${this.original.prettyDate} ${this.original.prettyPayee} pay`,
-      this.paybacks
-    );
+    // log(`${originalMagnitude} ${paybackMagnitude}`);
+    // log(`org`, this.original.postings);
+    // log(`pay`, this.paybacks);
 
     if (Math.abs(originalMagnitude - paybackMagnitude) < 0.01) {
-      console.log(
-        `B: ${this.original.prettyDate} ${this.original.prettyPayee} same`
-      );
+      // log(`same`);
       return expenses.map((p) => new MoneyBucket(p.account, p.value));
     }
 
     if (expenses.length == 1) {
-      console.log(
-        `B: ${this.original.prettyDate} ${this.original.prettyPayee} single`
-      );
+      // log(`single`);
       return [new MoneyBucket(expenses[0].account, paybackMagnitude)];
     }
 
@@ -485,17 +490,19 @@ export class Payback {
     );
 
     if (remainingPaybacks.length == 0) {
-      console.log(
-        `B: ${this.original.prettyDate} ${this.original.prettyPayee} exact`,
-        exactMatches
-      );
+      // log(`exact`, exactMatches);
     } else {
-      console.log(
-        `B: ${this.original.prettyDate} ${this.original.prettyPayee} fail`,
-        remainingPaybacks
-      );
+      log(`${originalMagnitude} ${paybackMagnitude} ${this.original.mid}`);
+      log(`org`, this.original.postings);
+      log(`pay`, this.paybacks);
+      log(`fail`, remainingPaybacks);
     }
-    return [...exactBuckets, new MoneyBucket(this.name, this.magnitude)];
+
+    const remainingBuckets = remainingPaybacks.map(
+      (p: Payback) => new MoneyBucket(this.name, p.magnitude)
+    );
+
+    return [...exactBuckets, ...remainingBuckets];
   }
 
   get name(): string {
@@ -599,23 +606,7 @@ export class Income {
 
     const buckets = _.flatten(paybacks.map((payback) => payback.buckets));
 
-    return buckets;
-
-    // TODO This should include the actual amount borrowed. See "gas" example.
-
-    /*
-    const paybackTransactions = _.uniq(
-      paybacks.map((payback) => payback.original)
-    );
-
-    const spending = this.filterPostingsGroupAndSum(
-      paybackTransactions,
-      (p) => isExpense(p.account),
-      { assumeOnePosting: false }
-    );
-
-    return spending;
-    */
+    return MoneyBucket.merge(buckets);
   }
 
   get expensePaybacks(): Payback[] {
@@ -658,25 +649,6 @@ export class Income {
           original: Transaction;
           paybacks: Transaction[];
         }) => {
-          /*
-          const magnitude = _.sum(paybacks.map((tx) => tx.magnitude));
-          const maybeBorrow = original.postings.filter(
-            (p: Posting) => Math.abs(p.value) == magnitude
-          );
-
-          if (maybeBorrow.length == 0) {
-            console.log(
-              original.prettyPayee,
-              magnitude,
-              // payback,
-              {
-                original: original,
-              },
-              maybeBorrow
-            );
-          }
-          */
-
           return new Payback(original, paybacks);
         }
       )
