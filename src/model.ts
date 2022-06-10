@@ -140,7 +140,7 @@ class Transactions {
   readonly references_: { [index: string]: Transaction[] };
 
   constructor(public readonly transactions: Transaction[]) {
-    this.byMid_ = _(transactions.map((tx) => [tx.mid, tx]));
+    this.byMid_ = _.fromPairs(transactions.map((tx) => [tx.mid, tx]));
     this.references_ = _(
       transactions.map((tx) =>
         tx.references.map((reference) => {
@@ -399,6 +399,17 @@ export const isPhysical = (path: string): boolean => {
   return !isVirtual(path);
 };
 
+export class MoneyBucket {
+  constructor(public readonly name: string, public readonly total: number) {}
+}
+
+export class Payback {
+  constructor(
+    public readonly payback: Transaction,
+    public readonly original: Transaction
+  ) {}
+}
+
 export class Income {
   constructor(
     public readonly tx: Transaction,
@@ -433,31 +444,60 @@ export class Income {
     return [...ourselves, ...fromReferences];
   }
 
+  get preallocated(): MoneyBucket[] {
+    const preallocations = _(this.references)
+      .filter((tx: Transaction) => tx.payee.startsWith("preallocating"))
+      .map((tx: Transaction) => {
+        const allocation = tx.postings.filter((p) => isAllocation(p.account));
+        if (allocation.length != 1) throw new Error("assumption");
+        return {
+          name: allocation[0].account,
+          value: allocation[0].value,
+        };
+      })
+      .groupBy((row) => row.name)
+      .map((rows, name: string) => {
+        return new MoneyBucket(name, _.sum(rows.map((r) => r.value)));
+      })
+      .value();
+
+    return preallocations;
+  }
+
   get expensesPaidBack(): Transaction[] {
-    const paybacks = this.references.filter((tx) =>
-      tx.payee.startsWith("payback")
-    );
-    const paybackReferences = paybacks.map((payback) => {
-      const references = _.uniq(
-        _.flatten(
-          payback.references.map((mid, index) =>
-            this.everything.references(mid).map((tx) => {
-              return {
-                tx,
-                index,
-              };
-            })
-          )
-        )
-      );
-      console.log("payback", payback.payee, payback.references, references);
-      return {
-        payback,
-        references,
-      };
-    });
-    console.log("payback-refs", paybackReferences);
-    return paybacks;
+    const paybacks = this.references
+      .filter((tx) => tx.payee.startsWith("payback"))
+      .map((payback) => {
+        const originals = _.uniq(
+          this.everything.find(_.take(payback.references, 1))
+        );
+
+        if (originals.length != 1) {
+          throw new Error("payback: Missing original");
+        }
+
+        /*
+        const references = _.uniq(
+          _.flatten(
+            _.take(payback.references, 1).map((mid: string, index: number) =>
+              this.everything
+                .references(mid)
+                .filter((tx) => tx != payback)
+                .map((tx) => {
+                  return {
+                    tx,
+                    index,
+                  };
+                })
+            )
+          ).map((row: { tx: Transaction }) => row.tx)
+        );
+        */
+
+        return new Payback(payback, originals[0]);
+      });
+
+    return _.uniq(paybacks.map((payback) => payback.original));
   }
 
   get allocationAccounts(): string[] {
@@ -510,7 +550,7 @@ export class Finances {
 
     return _.reverse(
       incomeTxs.transactions.map((tx) => {
-        console.log("income:", tx);
+        // console.log("income:", tx);
         return new Income(tx, this.txs);
       })
     );

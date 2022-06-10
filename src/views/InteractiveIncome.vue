@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { Event, Income, Posting } from "@/model";
-import Currency from "./Currency.vue";
-import TransactionLedger from "./TransactionLedger.vue";
 
 defineProps<{
   income: Income;
@@ -12,9 +10,14 @@ defineProps<{
 import _ from "lodash";
 import { isAllocation } from "@/model";
 
+import Currency from "./Currency.vue";
+import TransactionLedger from "./TransactionLedger.vue";
+import MoneyBuckets from "./MoneyBuckets.vue";
+
 export default {
   components: {
     Currency,
+    MoneyBuckets,
     TransactionLedger,
   },
   data(): {} {
@@ -43,15 +46,7 @@ export default {
       </div>
     </div>
     <div>
-      <TransactionLedger
-        :transactions="income.expensesPaidBack"
-        :filter="(p) => true"
-      >
-      </TransactionLedger>
-      <TransactionLedger
-        :transactions="income.references"
-        :filter="onlyAllocationsFilter"
-      ></TransactionLedger>
+      <MoneyBuckets :buckets="income.preallocated" />
     </div>
   </div>
 </template>
