@@ -23,7 +23,14 @@ export default {
   data(): {} {
     return {};
   },
-  computed: {},
+  computed: {
+    total(): number {
+      return (
+        _.sum(this.income.preallocated.map((mb) => mb.total)) +
+        _.sum(this.income.spending.map((mb) => mb.total))
+      );
+    },
+  },
   methods: {
     onClick() {
       console.log("income: click", this.income);
@@ -38,7 +45,8 @@ export default {
 <template>
   <div class="month">
     <div class="title" @click="onClick">
-      {{ income.title }} <Currency :value="income.deposited" v-if="false" />
+      {{ income.title }}
+      (<Currency :value="income.deposited" /> / <Currency :value="total" />)
     </div>
     <div v-if="false">
       <div v-for="(alloc, i) in income.allocations" v-bind:key="i">
