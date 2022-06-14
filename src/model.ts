@@ -73,10 +73,6 @@ export class Transaction {
     return this.magnitudeOf((p) => p.value > 0);
   }
 
-  magnitudeOf(predicate: (p: Posting) => boolean): number {
-    return _.sum(this.postings.filter(predicate).map((p) => p.value));
-  }
-
   get prettyDate(): string {
     return dateformat(this.date, "yyyy/mm/dd");
   }
@@ -92,6 +88,10 @@ export class Transaction {
 
   get references(): string[] {
     return this.allReferences.filter((mid) => mid.indexOf("_") < 0);
+  }
+
+  magnitudeOf(predicate: (p: Posting) => boolean): number {
+    return _.sum(this.postings.filter(predicate).map((p) => p.value));
   }
 
   tagged(tag: string): boolean {
@@ -181,6 +181,17 @@ class Balances {
 
 type MapTransactionFn = (t: Transaction) => Transaction[];
 
+class TransactionAndTotals {
+  constructor(public readonly tx: Transaction, public readonly total: number) {}
+}
+
+class ReduceState {
+  constructor(
+    public readonly txs: TransactionAndTotals[],
+    public readonly total: number
+  ) {}
+}
+
 class Transactions {
   readonly byMid_: { [index: string]: Transaction };
   readonly references_: { [index: string]: Transaction[] };
@@ -205,13 +216,6 @@ class Transactions {
       .value();
   }
 
-  get timeWindow(): TimeWindow {
-    const dates = this.transactions.map((t) => t.date);
-    const min = _.min(dates);
-    const max = _.max(dates);
-    return new TimeWindow(min, max);
-  }
-
   static build(data: TransactionsResponse): Transactions {
     return new Transactions(
       data.map((row) => {
@@ -232,6 +236,76 @@ class Transactions {
         );
       })
     );
+  }
+
+  get timeWindow(): TimeWindow {
+    const dates = this.transactions.map((t) => t.date);
+    const min = _.min(dates);
+    const max = _.max(dates);
+    return new TimeWindow(min, max);
+  }
+
+  public static filterPostingsGroupAndSum(
+    transactions: Transaction[],
+    predicate: PostingPredicate,
+    options: { assumeOnePosting: boolean } = { assumeOnePosting: true }
+  ): MoneyBucket[] {
+    return _(transactions)
+      .map((tx: Transaction) => {
+        const postings = tx.postings.filter(predicate);
+        if (options.assumeOnePosting) {
+          if (postings.length != 1) {
+            console.log(`error: Assumption:`, tx, postings);
+            throw new Error("assumption");
+          }
+        } else {
+        }
+        return postings.map((posting) => {
+          return {
+            name: posting.account,
+            value: posting.value,
+          };
+        });
+      })
+      .flatten()
+      .groupBy((row: NameAndValue) => row.name)
+      .map(
+        (rows: NameAndValue[], name: string) =>
+          new MoneyBucket(name, _.sum(rows.map((r: NameAndValue) => r.value)))
+      )
+      .sortBy((mb: MoneyBucket) => mb.name)
+      .value();
+  }
+
+  allAfterBalance(pattern: string, balance: number): Transaction[] {
+    const re = new RegExp(pattern);
+    const filtered = this.transactions.filter(
+      (tx) => tx.postings.filter((p) => re.test(p.account)).length > 0
+    );
+
+    const byDate = _.sortBy(filtered, (t: Transaction) => t.date);
+    const running = _.reduce(
+      byDate,
+      (prev: ReduceState, tx: Transaction) => {
+        const sub =
+          prev.total + tx.magnitudeOf((p: Posting) => re.test(p.account));
+        const item = new TransactionAndTotals(tx, sub);
+        // This builds the list in reverse order.
+        return new ReduceState([item, ...prev.txs], sub);
+      },
+      new ReduceState([], 0)
+    );
+
+    console.log("running", running);
+
+    const interesting = _.takeWhile(
+      running.txs,
+      (r: TransactionAndTotals, index: number) => r.total < balance
+    );
+
+    console.log("interesting", interesting);
+
+    return interesting.map((r: TransactionAndTotals) => r.tx);
   }
 
   references(mid: string): Transaction[] {
@@ -521,10 +595,25 @@ export const isTaxes = (tx: Transaction): boolean => {
   return tx.payee.indexOf("taxes on") >= 0;
 };
 
+export class EmergencySpending {
+  constructor(private readonly everything: Transactions) {}
+
+  private get borrowed(): Transaction[] {
+    return this.everything.allAfterBalance("^.+emergency$", 1000);
+  }
+
+  get buckets(): MoneyBucket[] {
+    return Transactions.filterPostingsGroupAndSum(
+      this.borrowed,
+      (p) => isAllocation(p.account) && p.value > 0
+    );
+  }
+}
+
 export class Income {
   constructor(
     public readonly tx: Transaction,
-    public readonly everything: Transactions
+    private readonly everything: Transactions
   ) {}
 
   private get mid(): string {
@@ -542,6 +631,10 @@ export class Income {
     );
   }
 
+  get originalAndReferences(): Transaction[] {
+    return [this.tx, ...this.references];
+  }
+
   get references(): Transaction[] {
     return this.everything.references(this.mid);
   }
@@ -555,38 +648,6 @@ export class Income {
     return [...ourselves, ...fromReferences];
   }
 
-  private filterPostingsGroupAndSum(
-    transactions: Transaction[],
-    predicate: PostingPredicate,
-    options: { assumeOnePosting: boolean } = { assumeOnePosting: true }
-  ): MoneyBucket[] {
-    return _(transactions)
-      .map((tx: Transaction) => {
-        const postings = tx.postings.filter(predicate);
-        if (options.assumeOnePosting) {
-          if (postings.length != 1) {
-            console.log(`error: Assumption:`, tx, postings);
-            throw new Error("assumption");
-          }
-        } else {
-        }
-        return postings.map((posting) => {
-          return {
-            name: posting.account,
-            value: posting.value,
-          };
-        });
-      })
-      .flatten()
-      .groupBy((row: NameAndValue) => row.name)
-      .map(
-        (rows: NameAndValue[], name: string) =>
-          new MoneyBucket(name, _.sum(rows.map((r: NameAndValue) => r.value)))
-      )
-      .sortBy((mb: MoneyBucket) => mb.name)
-      .value();
-  }
-
   get preallocated(): MoneyBucket[] {
     const references = this.references;
 
@@ -594,7 +655,7 @@ export class Income {
       tx.payee.startsWith("preallocating")
     );
 
-    const preallocatedBuckets = this.filterPostingsGroupAndSum(
+    const preallocatedBuckets = Transactions.filterPostingsGroupAndSum(
       simplePreallocations,
       (p) => isAllocation(p.account)
     );
@@ -604,7 +665,7 @@ export class Income {
       simplePreallocations
     );
 
-    const otherBuckets = this.filterPostingsGroupAndSum(
+    const otherBuckets = Transactions.filterPostingsGroupAndSum(
       otherPreallocations,
       (p) => isAllocation(p.account),
       { assumeOnePosting: false }
@@ -667,8 +728,18 @@ export class Income {
       .value();
   }
 
+  get allocationPostings(): Posting[] {
+    return this.tx.postings.filter((p) => isAllocation(p.account));
+  }
+
+  get allocationBuckets(): MoneyBucket[] {
+    return this.allocationPostings.map(
+      (p) => new MoneyBucket(p.account, p.value)
+    );
+  }
+
   get allocationAccounts(): string[] {
-    return this.tx.postings.map((p) => p.account).filter(isAllocation);
+    return this.allocationPostings.map((p) => p.account);
   }
 
   get physicalAccounts(): string[] {
@@ -701,6 +772,10 @@ export class Finances {
     const available = availableTxs.balance();
     const emergency = emergencyTxs.balance();
     return new Glance(available, emergency);
+  }
+
+  emergencySpending(): EmergencySpending {
+    return new EmergencySpending(this.txs);
   }
 
   incomes(): Income[] {

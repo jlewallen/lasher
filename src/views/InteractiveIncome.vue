@@ -54,8 +54,18 @@ export default {
       </div>
     </div>
     <div>
+      <MoneyBuckets :buckets="income.allocationBuckets" />
       <MoneyBuckets :buckets="income.preallocated" />
       <MoneyBuckets :buckets="income.spending" />
+      <TransactionLedger
+        :transactions="income.originalAndReferences"
+        :filter="(p) => true"
+        v-if="
+          income.spending.length == 0 &&
+          income.preallocated.length == 0 &&
+          income.allocationBuckets.length == 0
+        "
+      />
     </div>
   </div>
 </template>
