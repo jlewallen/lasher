@@ -53,10 +53,16 @@ export default {
         {{ alloc.account }} <Currency :value="alloc.value" />
       </div>
     </div>
-    <div>
+    <div class="allocation-buckets">
       <MoneyBuckets :buckets="income.allocationBuckets" />
-      <MoneyBuckets :buckets="income.preallocated" />
+    </div>
+    <div class="spending-buckets">
       <MoneyBuckets :buckets="income.spending" />
+    </div>
+    <div class="preallocated-buckets">
+      <MoneyBuckets :buckets="income.preallocated" />
+    </div>
+    <div>
       <TransactionLedger
         :transactions="income.originalAndReferences"
         :filter="(p) => true"
@@ -77,14 +83,11 @@ export default {
   cursor: pointer;
 }
 
-/*
-.title .path-summary {
-  display: inline-block;
-  padding-right: 0.5em;
+::v-deep .allocation-buckets .currency-value {
+  color: #efefaa;
 }
 
-::v-deep .tree-node {
-  line-height: 2.2em;
+::v-deep .spending-buckets .currency-value {
+  color: #d2a4c8;
 }
-*/
 </style>

@@ -498,7 +498,7 @@ export class MoneyBucket {
       .map((group: MoneyBucket[], name: string) => {
         return new MoneyBucket(name, _.sum(group.map((mb) => mb.total)));
       })
-      .sortBy((mb: MoneyBucket) => mb.name)
+      .sortBy((mb: MoneyBucket) => -mb.total)
       .value();
   }
 }
@@ -618,6 +618,28 @@ export class Payback {
       exactMatches.map((em: { payback: Payback }) => em.payback)
     );
 
+    // Some other common scenarios.
+    /*
+    const findSimplePartialPaybacks = (): PaybacksAndBuckets[] => {
+      if (taxesMagnitude > 0 || expenses.length != 1) {
+        return [];
+      }
+      return [
+        {
+          paybacks: afterExactMatches,
+          buckets: [
+            ...afterExactMatches.map(
+              (tx: Transaction) =>
+                new MoneyBucket(expenses[0].account, tx.magnitude)
+            ),
+            ...createTaxes(expenses[0].account, taxesMagnitude),
+          ],
+        },
+      ];
+    };
+
+    const simplePartialPaybacks = findSimplePartialPaybacks();
+    */
     const simplePartialPaybacks: PaybacksAndBuckets[] = [];
 
     const remainingPaybacks = _.difference(
@@ -741,7 +763,7 @@ export class Income {
       { assumeOnePosting: false }
     );
 
-    return [...otherBuckets, ...preallocatedBuckets];
+    return MoneyBucket.merge([...otherBuckets, ...preallocatedBuckets]);
   }
 
   get spending(): MoneyBucket[] {
