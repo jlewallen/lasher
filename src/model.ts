@@ -525,8 +525,10 @@ export class Payback {
   }
 
   private calculateBuckets(): MoneyBucket[] {
+    const debug = false; // this.original.payee.indexOf("superior") >= 0;
+
     const log = (...args: unknown[]) => {
-      if (true) {
+      if (debug) {
         console.log(
           `${this.original.prettyDate} ${this.original.prettyPayee}`,
           ...args
@@ -557,19 +559,28 @@ export class Payback {
     const paybackMagnitude = _.sum(normalPaybacks.map((tx) => tx.magnitude));
     const taxesMagnitude = _.sum(taxesPaybacks.map((tx) => tx.magnitude));
 
+    if (debug) {
+      log(
+        `${originalMagnitude} payback=${paybackMagnitude} taxes=${taxesMagnitude} ${this.original.mid}`
+      );
+      log(`org`, this.original.postings);
+      log(`pay`, this.paybacks);
+    }
+
     // If there's only one expense the money can go towards and the magnitudes
     // are the same then we can assume that's where things went, yes?
     if (
       expenses.length == 1 // && Math.abs(originalMagnitude - paybackMagnitude) < 0.01
     ) {
-      const expenseBuckets = expenses.map(
-        (p: Posting) => new MoneyBucket(p.account, p.value)
+      const expenseBuckets = normalPaybacks.map(
+        (tx: Transaction) => new MoneyBucket(expenses[0].account, tx.magnitude)
       );
       const taxBuckets = _.flatten(
-        expenses.map((p: Posting) => [
-          ...createTaxes(p.account, taxesMagnitude),
+        taxesPaybacks.map((tx: Transaction) => [
+          ...createTaxes(expenses[0].account, tx.magnitude),
         ])
       );
+      log("expenses == 1");
       return [...expenseBuckets, ...taxBuckets];
     }
 
@@ -607,28 +618,6 @@ export class Payback {
       exactMatches.map((em: { payback: Payback }) => em.payback)
     );
 
-    // Some other common scenarios.
-    /*
-    const findSimplePartialPaybacks = (): PaybacksAndBuckets[] => {
-      if (taxesMagnitude > 0 || expenses.length != 1) {
-        return [];
-      }
-      return [
-        {
-          paybacks: afterExactMatches,
-          buckets: [
-            ...afterExactMatches.map(
-              (tx: Transaction) =>
-                new MoneyBucket(expenses[0].account, tx.magnitude)
-            ),
-            ...createTaxes(expenses[0].account, taxesMagnitude),
-          ],
-        },
-      ];
-    };
-
-    const simplePartialPaybacks = findSimplePartialPaybacks();
-    */
     const simplePartialPaybacks: PaybacksAndBuckets[] = [];
 
     const remainingPaybacks = _.difference(
@@ -642,11 +631,6 @@ export class Payback {
 
     if (remainingPaybacks.length > 0) {
       if (originalMagnitude > 0) {
-        log(
-          `${originalMagnitude} payback=${paybackMagnitude} taxes=${taxesMagnitude} ${this.original.mid}`
-        );
-        log(`org`, this.original.postings);
-        log(`pay`, this.paybacks);
         log(`sim`, simplePartialPaybacks);
         log(`fail`, remainingPaybacks);
       }
