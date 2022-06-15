@@ -81,13 +81,13 @@ export class Transaction {
     return this.payee.replace(/#\S+#/, "");
   }
 
-  get allReferences(): string[] {
+  private get allReferences(): string[] {
     const m = /#(\S+)#/.exec(this.payee);
     return m ? m[1].split(",") : [];
   }
 
   get references(): string[] {
-    return this.allReferences.filter((mid) => mid.indexOf("_") < 0);
+    return this.allReferences.filter((mid: string) => mid.indexOf("_") < 0);
   }
 
   magnitudeOf(predicate: (p: Posting) => boolean): number {
@@ -296,14 +296,14 @@ class Transactions {
       new ReduceState([], 0)
     );
 
-    console.log("running", running);
+    // console.log("emer:running", running);
 
     const interesting = _.takeWhile(
       running.txs,
       (r: TransactionAndTotals, index: number) => r.total < balance
     );
 
-    console.log("interesting", interesting);
+    // console.log("emer:interesting", interesting);
 
     return interesting.map((r: TransactionAndTotals) => r.tx);
   }
@@ -503,76 +503,158 @@ export class MoneyBucket {
   }
 }
 
+type PaybacksAndBuckets = { paybacks: Transaction[]; buckets: MoneyBucket[] };
+
+type PaybackAndBuckets = { payback: Transaction; buckets: MoneyBucket[] };
+
+const createTaxes = (original: string, total: number): MoneyBucket[] => {
+  if (total > 0) {
+    return [new MoneyBucket(original + ":tax", total)];
+  }
+  return [];
+};
+
 export class Payback {
+  public readonly buckets: MoneyBucket[];
+
   constructor(
     public readonly original: Transaction,
     public readonly paybacks: Transaction[]
-  ) {}
+  ) {
+    this.buckets = this.calculateBuckets();
+  }
 
-  get buckets(): MoneyBucket[] {
+  private calculateBuckets(): MoneyBucket[] {
     const log = (...args: unknown[]) => {
-      console.log(
-        `B: ${this.original.prettyDate} ${this.original.prettyPayee}`,
-        ...args
-      );
+      if (true) {
+        console.log(
+          `${this.original.prettyDate} ${this.original.prettyPayee}`,
+          ...args
+        );
+      }
     };
 
+    // TODO Right now we only end up in here with 'paybacks' that specifically
+    // reference an income. This means that paybacks that happen from the
+    // refunded account never get included.
+
+    // How much physical money is involved. Otherwise this will include
+    // allocations and that usually incorrectly doubles the desired value.
     const originalMagnitude = Math.abs(
       this.original.magnitudeOf((p) => isPhysical(p.account))
     );
     const expenses = this.original.postings
       .filter((p) => isExpense(p.account))
-      .filter((p) => p.account != "expenses:cash:tips");
-    const paybackMagnitude = _.sum(this.paybacks.map((p) => p.magnitude));
+      .filter((p) => p.account != "expenses:cash:tips"); // TOOD Hack
 
-    if (Math.abs(originalMagnitude - paybackMagnitude) < 0.01) {
-      // log(`same`);
-      return expenses.map((p) => new MoneyBucket(p.account, p.value));
+    // Calculate how much was paid back in expenses and how much was paid in
+    // taxes. Taxes can be any additional money that's moved on top of the
+    // amount to pay back the original expense.
+    const normalPaybacks = this.paybacks.filter(
+      (tx: Transaction) => !isTaxesTransaction(tx)
+    );
+    const taxesPaybacks = this.paybacks.filter((tx) => isTaxesTransaction(tx));
+    const paybackMagnitude = _.sum(normalPaybacks.map((tx) => tx.magnitude));
+    const taxesMagnitude = _.sum(taxesPaybacks.map((tx) => tx.magnitude));
+
+    // If there's only one expense the money can go towards and the magnitudes
+    // are the same then we can assume that's where things went, yes?
+    if (
+      expenses.length == 1 // && Math.abs(originalMagnitude - paybackMagnitude) < 0.01
+    ) {
+      const expenseBuckets = expenses.map(
+        (p: Posting) => new MoneyBucket(p.account, p.value)
+      );
+      const taxBuckets = _.flatten(
+        expenses.map((p: Posting) => [
+          ...createTaxes(p.account, taxesMagnitude),
+        ])
+      );
+      return [...expenseBuckets, ...taxBuckets];
     }
 
-    if (expenses.length == 1) {
-      // log(`single`);
-      return [new MoneyBucket(expenses[0].account, paybackMagnitude)];
-    }
-
+    // Look for payback transactions that match a posting in the original
+    // expense exactly.
     const exactMatches = _.flatten(
-      this.paybacks
-        .map((payback) => {
+      normalPaybacks
+        .map((payback: Transaction) => {
+          // TODO We should exclude expenses that match just in case there's
+          // multiple postings with the same value.
+          // TODO Maybe at least warn?
           const maybe = expenses.filter(
-            (expense) => Math.abs(expense.value) == payback.magnitude
+            (expense: Posting) => Math.abs(expense.value) == payback.magnitude
           );
           return {
             payback: payback,
             buckets: maybe.map(
-              (expense) => new MoneyBucket(expense.account, payback.magnitude)
+              (expense: Posting) =>
+                new MoneyBucket(expense.account, payback.magnitude)
             ),
           };
         })
-        .filter((em) => em.buckets.length > 0)
-    );
-    const remainingPaybacks = _.difference(
-      this.paybacks,
-      exactMatches.map((em: { payback: Payback }) => em.payback)
+        .filter((em: PaybackAndBuckets) => em.buckets.length > 0)
     );
 
+    // We only need to return the buckets so get the buckets that were matched
+    // exactly above.
     const exactBuckets = _.flatten(
       exactMatches.map((em: { buckets: MoneyBucket[] }) => em.buckets)
     );
 
-    if (remainingPaybacks.length == 0) {
-      // log(`exact`, exactMatches);
-    } else {
-      log(`${originalMagnitude} ${paybackMagnitude} ${this.original.mid}`);
-      log(`org`, this.original.postings);
-      log(`pay`, this.paybacks);
-      log(`fail`, remainingPaybacks);
-    }
+    // We may not match all of the paybacks exactly, so remove those that were.
+    const afterExactMatches = _.difference(
+      this.paybacks,
+      exactMatches.map((em: { payback: Payback }) => em.payback)
+    );
+
+    // Some other common scenarios.
+    /*
+    const findSimplePartialPaybacks = (): PaybacksAndBuckets[] => {
+      if (taxesMagnitude > 0 || expenses.length != 1) {
+        return [];
+      }
+      return [
+        {
+          paybacks: afterExactMatches,
+          buckets: [
+            ...afterExactMatches.map(
+              (tx: Transaction) =>
+                new MoneyBucket(expenses[0].account, tx.magnitude)
+            ),
+            ...createTaxes(expenses[0].account, taxesMagnitude),
+          ],
+        },
+      ];
+    };
+
+    const simplePartialPaybacks = findSimplePartialPaybacks();
+    */
+    const simplePartialPaybacks: PaybacksAndBuckets[] = [];
+
+    const remainingPaybacks = _.difference(
+      afterExactMatches,
+      _.flatten(simplePartialPaybacks.map((row) => row.paybacks))
+    );
 
     const remainingBuckets = remainingPaybacks.map(
       (p: Payback) => new MoneyBucket(this.name, p.magnitude)
     );
 
-    return [...exactBuckets, ...remainingBuckets];
+    if (remainingPaybacks.length > 0) {
+      if (originalMagnitude > 0) {
+        log(
+          `${originalMagnitude} payback=${paybackMagnitude} taxes=${taxesMagnitude} ${this.original.mid}`
+        );
+        log(`org`, this.original.postings);
+        log(`pay`, this.paybacks);
+        log(`sim`, simplePartialPaybacks);
+        log(`fail`, remainingPaybacks);
+      }
+    }
+
+    const remainingTaxes = createTaxes("unknown:taxes", taxesMagnitude);
+
+    return [...exactBuckets, ...remainingBuckets, ...remainingTaxes];
   }
 
   get name(): string {
@@ -591,7 +673,7 @@ export type PaybackAndOriginal = {
   original: Transaction;
 };
 
-export const isTaxes = (tx: Transaction): boolean => {
+export const isTaxesTransaction = (tx: Transaction): boolean => {
   return tx.payee.indexOf("taxes on") >= 0;
 };
 
@@ -611,10 +693,14 @@ export class EmergencySpending {
 }
 
 export class Income {
+  public readonly expensePaybacks: Payback[];
+
   constructor(
     public readonly tx: Transaction,
     private readonly everything: Transactions
-  ) {}
+  ) {
+    this.expensePaybacks = this.createExpensePaybacks();
+  }
 
   private get mid(): string {
     if (!this.tx.mid) throw new Error();
@@ -682,7 +768,7 @@ export class Income {
     return MoneyBucket.merge(buckets);
   }
 
-  get expensePaybacks(): Payback[] {
+  private createExpensePaybacks(): Payback[] {
     // First get all payback transactions.
     const paybackTransactions = this.references.filter((tx) =>
       tx.payee.startsWith("payback")
@@ -708,7 +794,7 @@ export class Income {
       .map((rows: PaybackAndOriginal[]) => {
         return {
           original: rows[0].original,
-          paybacks: rows.map((row) => row.payback).filter((tx) => !isTaxes(tx)),
+          paybacks: rows.map((row) => row.payback),
         };
       })
       .value();
@@ -756,7 +842,11 @@ export class Income {
 }
 
 export class Finances {
-  constructor(public readonly txs: Transactions) {}
+  public readonly incomes: Income[];
+
+  constructor(public readonly txs: Transactions) {
+    this.incomes = this.createIncomes();
+  }
 
   static build(data: TransactionResponse[]) {
     return new Finances(Transactions.build(data));
@@ -778,7 +868,7 @@ export class Finances {
     return new EmergencySpending(this.txs);
   }
 
-  incomes(): Income[] {
+  private createIncomes(): Income[] {
     const incomeTxs = this.txs
       .map(
         transactionsMatchingPath(["^income:"], { excludeOtherPostings: false })
@@ -793,7 +883,7 @@ export class Finances {
     return _.reverse(
       incomeTxs.transactions.map((tx) => {
         const income = new Income(tx, this.txs);
-        // console.log("income:", income.expensePaybacks);
+        console.log("income:", tx.mid, income.expensePaybacks);
         return income;
       })
     );

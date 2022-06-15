@@ -33,7 +33,7 @@ export default {
       .then((data) => {
         const finances = Finances.build(data);
         this.months = finances.months();
-        this.incomes = finances.incomes();
+        this.incomes = finances.incomes;
         this.glance = finances.glance();
         this.emergency = finances.emergencySpending();
       });
@@ -45,7 +45,6 @@ export default {
   <main>
     <Glance :glance="glance" v-if="glance" />
     <div v-if="emergency">
-      <div>Emergency</div>
       <EmergencySpending :spending="emergency" />
     </div>
     <div class="incomes">
