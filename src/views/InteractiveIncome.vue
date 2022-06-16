@@ -13,11 +13,13 @@ import { isAllocation } from "@/model";
 import Currency from "./Currency.vue";
 import TransactionLedger from "./TransactionLedger.vue";
 import MoneyBuckets from "./MoneyBuckets.vue";
+import MoneyBucketsTotal from "./MoneyBucketsTotal.vue";
 
 export default {
   components: {
     Currency,
     MoneyBuckets,
+    MoneyBucketsTotal,
     TransactionLedger,
   },
   data(): {} {
@@ -53,14 +55,16 @@ export default {
         {{ alloc.account }} <Currency :value="alloc.value" />
       </div>
     </div>
-    <div class="allocation-buckets">
+    <div class="allocation-buckets" v-if="income.allocationBuckets.length > 0">
       <MoneyBuckets :buckets="income.allocationBuckets" />
     </div>
-    <div class="spending-buckets">
+    <div class="spending-buckets" v-if="income.preallocated.length > 0">
       <MoneyBuckets :buckets="income.spending" />
+      <MoneyBucketsTotal :buckets="income.spending" />
     </div>
-    <div class="preallocated-buckets">
+    <div class="preallocated-buckets" v-if="income.preallocated.length > 0">
       <MoneyBuckets :buckets="income.preallocated" />
+      <MoneyBucketsTotal :buckets="income.preallocated" />
     </div>
     <div>
       <TransactionLedger
