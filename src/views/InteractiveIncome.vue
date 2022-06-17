@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Event, Income, MoneyBucket, Posting } from "@/model";
+import type { Event, Income, Posting } from "@/model";
+import { isAllocation, MoneyBucket } from "@/model";
 
 defineProps<{
   income: Income;
@@ -8,7 +9,6 @@ defineProps<{
 
 <script lang="ts">
 import _ from "lodash";
-import { isAllocation } from "@/model";
 
 import Currency from "./Currency.vue";
 import TransactionLedger from "./TransactionLedger.vue";
@@ -35,11 +35,26 @@ export default {
     spending(): MoneyBucket[] {
       return this.income.spending;
     },
+    totalAllocations(): number {
+      return MoneyBucket.total(this.income.allocationBuckets);
+    },
+    totalSpending(): number {
+      return MoneyBucket.total(this.spending);
+    },
     originalSpending(): MoneyBucket[] {
       return this.spending.filter((mb) => !mb.taxes);
     },
+    totalOriginalSpending(): number {
+      return MoneyBucket.total(this.spending);
+    },
     taxes(): MoneyBucket[] {
       return this.spending.filter((mb) => mb.taxes);
+    },
+    totalTaxes(): number {
+      return MoneyBucket.total(this.taxes);
+    },
+    totalPreallocations(): number {
+      return MoneyBucket.total(this.income.preallocated);
     },
   },
   methods: {
@@ -57,25 +72,32 @@ export default {
   <div class="month">
     <div class="title" @click="onClick">
       {{ income.title }}
-      (<Currency :value="income.deposited" /> / <Currency :value="total" />)
     </div>
-    <div v-if="false">
-      <div v-for="(alloc, i) in income.allocations" v-bind:key="i">
-        {{ alloc.account }} <Currency :value="alloc.value" />
-      </div>
+    <div class="totals" @click="onClick">
+      <span class="deposited"><Currency :value="income.deposited" /></span> -
+      <span class="allocations"><Currency :value="totalAllocations" /></span>
+      -
+      <span class="spending"><Currency :value="totalOriginalSpending" /></span>
+      -
+      <span class="taxes"><Currency :value="totalTaxes" /></span>
+      -
+      <span class="preallocations"
+        ><Currency :value="totalPreallocations"
+      /></span>
+      = 0
     </div>
-    <div class="allocation-buckets" v-if="income.allocationBuckets.length > 0">
+    <div class="allocations" v-if="income.allocationBuckets.length > 0">
       <MoneyBuckets :buckets="income.allocationBuckets" />
     </div>
-    <div class="spending-buckets" v-if="originalSpending.length > 0">
+    <div class="spending" v-if="originalSpending.length > 0">
       <MoneyBuckets :buckets="originalSpending" />
       <MoneyBucketsTotal :buckets="originalSpending" />
     </div>
-    <div class="taxes-buckets" v-if="taxes.length > 0">
+    <div class="taxes" v-if="taxes.length > 0">
       <MoneyBuckets :buckets="taxes" />
       <MoneyBucketsTotal :buckets="taxes" />
     </div>
-    <div class="preallocated-buckets" v-if="income.preallocated.length > 0">
+    <div class="preallocations" v-if="income.preallocated.length > 0">
       <MoneyBuckets :buckets="income.preallocated" />
       <MoneyBucketsTotal :buckets="income.preallocated" />
     </div>
@@ -100,15 +122,15 @@ export default {
   cursor: pointer;
 }
 
-::v-deep .allocation-buckets .currency-value {
+::v-deep .allocations .currency-value {
   color: #efefaa;
 }
 
-::v-deep .spending-buckets .currency-value {
+::v-deep .spending .currency-value {
   color: #d2a4c8;
 }
 
-::v-deep .taxes-buckets .currency-value {
+::v-deep .taxes .currency-value {
   color: #69b076;
 }
 </style>

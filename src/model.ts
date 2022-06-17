@@ -496,6 +496,10 @@ export class MoneyBucket {
     return this.name.endsWith(":tax");
   }
 
+  static total(buckets: MoneyBucket[]): number {
+    return _.sum(buckets.map((mb) => mb.total));
+  }
+
   static merge(buckets: MoneyBucket[]): MoneyBucket[] {
     return _(buckets)
       .groupBy((b: MoneyBucket) => b.name)
