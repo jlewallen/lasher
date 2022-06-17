@@ -87,18 +87,20 @@ export default {
       = 0
     </div>
     <div class="allocations" v-if="income.allocationBuckets.length > 0">
-      <MoneyBuckets :buckets="income.allocationBuckets" />
+      <MoneyBuckets :buckets="income.allocationBuckets">
+        Allocated
+      </MoneyBuckets>
     </div>
     <div class="spending" v-if="originalSpending.length > 0">
-      <MoneyBuckets :buckets="originalSpending" />
+      <MoneyBuckets :buckets="originalSpending"> Spending </MoneyBuckets>
       <MoneyBucketsTotal :buckets="originalSpending" />
     </div>
     <div class="taxes" v-if="taxes.length > 0">
-      <MoneyBuckets :buckets="taxes" />
+      <MoneyBuckets :buckets="taxes"> Taxes </MoneyBuckets>
       <MoneyBucketsTotal :buckets="taxes" />
     </div>
     <div class="preallocations" v-if="income.preallocated.length > 0">
-      <MoneyBuckets :buckets="income.preallocated" />
+      <MoneyBuckets :buckets="income.preallocated"> Preallocated </MoneyBuckets>
       <MoneyBucketsTotal :buckets="income.preallocated" />
     </div>
     <div>
