@@ -492,6 +492,10 @@ export class Velocity {
 export class MoneyBucket {
   constructor(public readonly name: string, public readonly total: number) {}
 
+  get taxes(): boolean {
+    return this.name.endsWith(":tax");
+  }
+
   static merge(buckets: MoneyBucket[]): MoneyBucket[] {
     return _(buckets)
       .groupBy((b: MoneyBucket) => b.name)

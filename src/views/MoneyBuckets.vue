@@ -19,7 +19,11 @@ export default {
 
 <template>
   <div class="buckets">
-    <div v-for="bucket in buckets" v-bind:key="bucket.name" class="bucket">
+    <div
+      v-for="bucket in buckets"
+      v-bind:key="bucket.name"
+      :class="{ bucket: true }"
+    >
       <span class="name">{{ bucket.name }}</span>
       <span class="total"> <Currency :value="bucket.total" /></span>
     </div>

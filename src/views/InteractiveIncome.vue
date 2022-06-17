@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Event, Income, Posting } from "@/model";
+import type { Event, Income, MoneyBucket, Posting } from "@/model";
 
 defineProps<{
   income: Income;
@@ -32,6 +32,15 @@ export default {
         _.sum(this.income.spending.map((mb) => mb.total))
       );
     },
+    spending(): MoneyBucket[] {
+      return this.income.spending;
+    },
+    originalSpending(): MoneyBucket[] {
+      return this.spending.filter((mb) => !mb.taxes);
+    },
+    taxes(): MoneyBucket[] {
+      return this.spending.filter((mb) => mb.taxes);
+    },
   },
   methods: {
     onClick() {
@@ -58,9 +67,13 @@ export default {
     <div class="allocation-buckets" v-if="income.allocationBuckets.length > 0">
       <MoneyBuckets :buckets="income.allocationBuckets" />
     </div>
-    <div class="spending-buckets" v-if="income.preallocated.length > 0">
-      <MoneyBuckets :buckets="income.spending" />
-      <MoneyBucketsTotal :buckets="income.spending" />
+    <div class="spending-buckets" v-if="originalSpending.length > 0">
+      <MoneyBuckets :buckets="originalSpending" />
+      <MoneyBucketsTotal :buckets="originalSpending" />
+    </div>
+    <div class="taxes-buckets" v-if="taxes.length > 0">
+      <MoneyBuckets :buckets="taxes" />
+      <MoneyBucketsTotal :buckets="taxes" />
     </div>
     <div class="preallocated-buckets" v-if="income.preallocated.length > 0">
       <MoneyBuckets :buckets="income.preallocated" />
@@ -93,5 +106,9 @@ export default {
 
 ::v-deep .spending-buckets .currency-value {
   color: #d2a4c8;
+}
+
+::v-deep .taxes-buckets .currency-value {
+  color: #69b076;
 }
 </style>
