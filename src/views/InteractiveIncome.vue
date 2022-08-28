@@ -78,8 +78,10 @@ export default {
       <span class="allocations"><Currency :value="totalAllocations" /></span>
       -
       <span class="spending"><Currency :value="totalOriginalSpending" /></span>
-      -
-      <span class="taxes"><Currency :value="totalTaxes" /></span>
+      <span v-if="false">
+        -
+        <span class="taxes"><Currency :value="totalTaxes" /></span>
+      </span>
       -
       <span class="preallocations"
         ><Currency :value="totalPreallocations"
@@ -100,7 +102,9 @@ export default {
       <MoneyBucketsTotal :buckets="taxes" />
     </div>
     <div class="preallocations" v-if="income.preallocated.length > 0">
-      <MoneyBuckets :buckets="income.preallocated"> Preallocated </MoneyBuckets>
+      <MoneyBuckets :buckets="income.preallocated" :balances="income.balances">
+        Preallocated
+      </MoneyBuckets>
       <MoneyBucketsTotal :buckets="income.preallocated" />
     </div>
     <div>

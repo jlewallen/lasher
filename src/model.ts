@@ -158,13 +158,17 @@ export class TimeWindow {
   }
 }
 
-class Balances {
+export class Balances {
   constructor(public readonly balances: { [index: string]: number }) {}
 
   absolute(): Balances {
     return new Balances(
       _.mapValues(this.balances, (value: number) => Math.abs(value))
     );
+  }
+
+  of(name: string): number | null {
+    return this.balances[name];
   }
 
   single(): number {
@@ -337,6 +341,10 @@ class Transactions {
 
   map(fn: MapTransactionFn): Transactions {
     return new Transactions(_.flatten(this.transactions.map(fn)));
+  }
+
+  before(time: Date): Transactions {
+    return this.filter((t) => t.date < time);
   }
 
   monthly(): GroupedTransactions {
@@ -706,14 +714,24 @@ export class EmergencySpending {
   }
 }
 
+function addDays(date: Date, days: number): Date {
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
 export class Income {
   public readonly expensePaybacks: Payback[];
+  public readonly balances: Balances;
 
   constructor(
     public readonly tx: Transaction,
     private readonly everything: Transactions
   ) {
     this.expensePaybacks = this.createExpensePaybacks();
+
+    const asOf = this.everything.before(addDays(this.tx.date, 1));
+
+    this.balances = asOf.balances();
   }
 
   private get mid(): string {

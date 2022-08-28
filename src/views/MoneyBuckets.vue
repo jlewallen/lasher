@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { MoneyBucket } from "@/model";
+import type { MoneyBucket, Balances } from "@/model";
 
 defineProps<{
   buckets: MoneyBucket[];
+  balances?: Balances;
 }>();
 </script>
 
@@ -27,6 +28,16 @@ export default {
         this.focused = bucket;
       }
     },
+    balanceOf(name: string): number | null {
+      if (!this.balances) {
+        return null;
+      }
+      return this.balances.of(name);
+    },
+    required(value: number | null): number {
+      if (value === null) throw new Error("value is required");
+      return value;
+    },
   },
 };
 </script>
@@ -36,7 +47,10 @@ export default {
     <template v-for="bucket in buckets" v-bind:key="bucket.name">
       <div class="bucket" @click="onClick(bucket)">
         <span class="name">{{ bucket.name }}</span>
-        <span class="total"> <Currency :value="bucket.total" /></span>
+        <span class="total"> <Currency :value="bucket.total" /> </span>
+        <span class="balance" v-if="balanceOf(bucket.name)">
+          <Currency :value="required(balanceOf(bucket.name))" />
+        </span>
         <div v-if="focused && focused.name == bucket.name"><slot /></div>
       </div>
     </template>
@@ -47,7 +61,9 @@ export default {
 .bucket .name {
   padding-right: 0.5em;
 }
-
+.bucket .balance {
+  padding-left: 0.5em;
+}
 .bucket .total {
   font-size: 16pt;
 }
