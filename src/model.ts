@@ -6,8 +6,8 @@ interface TransactionResponse {
   date: string;
   payee: string;
   cleared: boolean;
-  note: string;
-  postings: { account: string; value: number; note: string }[];
+  notes: [string];
+  postings: { account: string; value: string; note?: string }[];
   mid: string;
 }
 
@@ -95,7 +95,7 @@ export class Transaction {
   }
 
   tagged(tag: string): boolean {
-    return _.some(this.postings.filter((p) => p.note.indexOf(tag) >= 0));
+    return _.some(this.postings.filter((p) => (p.note || '').indexOf(tag) >= 0));
   }
 
   resolvePaidFrom(): Posting | null {
@@ -226,15 +226,15 @@ class Transactions {
         const postings = row.postings.map((postingRow) => {
           return new Posting(
             postingRow.account,
-            postingRow.value,
-            postingRow.note
+            Number(postingRow.value),
+             postingRow.note || ''
           );
         });
         return new Transaction(
           new Date(row.date),
           row.payee,
           row.cleared,
-          row.note,
+          row.notes,
           postings,
           row.mid
         );
