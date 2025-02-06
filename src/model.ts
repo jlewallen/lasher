@@ -95,7 +95,9 @@ export class Transaction {
   }
 
   tagged(tag: string): boolean {
-    return _.some(this.postings.filter((p) => (p.note || '').indexOf(tag) >= 0));
+    return _.some(
+      this.postings.filter((p) => (p.note || "").indexOf(tag) >= 0)
+    );
   }
 
   resolvePaidFrom(): Posting | null {
@@ -218,6 +220,8 @@ class Transactions {
         rows.map((row) => row.tx)
       )
       .value();
+
+    console.log(this.references_);
   }
 
   static build(data: TransactionsResponse): Transactions {
@@ -227,7 +231,7 @@ class Transactions {
           return new Posting(
             postingRow.account,
             Number(postingRow.value),
-             postingRow.note || ''
+            postingRow.note || ""
           );
         });
         return new Transaction(
@@ -313,6 +317,7 @@ class Transactions {
   }
 
   references(mid: string): Transaction[] {
+    console.log("mid", mid);
     if (this.references_[mid]) {
       return this.references_[mid];
     }
@@ -541,7 +546,7 @@ export class Payback {
   }
 
   private calculateBuckets(): MoneyBucket[] {
-    const debug = false; // this.original.payee.indexOf("superior") >= 0;
+    const debug = this.original.payee.indexOf("stater brothers") >= 0;
 
     const log = (...args: unknown[]) => {
       if (debug) {
@@ -579,8 +584,8 @@ export class Payback {
       log(
         `${originalMagnitude} payback=${paybackMagnitude} taxes=${taxesMagnitude} ${this.original.mid}`
       );
-      log(`org`, this.original.postings);
-      log(`pay`, this.paybacks);
+      log(`postings`, this.original.postings);
+      log(`paybacks`, this.paybacks);
     }
 
     // If there's only one expense the money can go towards and the magnitudes
@@ -669,7 +674,7 @@ export class Payback {
 
     if (remainingPaybacks.length > 0) {
       if (originalMagnitude > 0) {
-        log(`sim`, simplePartialPaybacks);
+        log(`simple`, simplePartialPaybacks);
         log(`fail`, remainingPaybacks);
       }
     }
@@ -803,7 +808,7 @@ export class Income {
   private createExpensePaybacks(): Payback[] {
     // First get all payback transactions.
     const paybackTransactions = this.references.filter((tx) =>
-      tx.payee.startsWith("payback")
+      tx.payee.startsWith("cover")
     );
 
     // Group them by their "original" withrawl.

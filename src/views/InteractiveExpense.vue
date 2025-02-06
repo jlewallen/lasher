@@ -28,7 +28,7 @@ export default {
 </script>
 
 <template>
-  <div class="expense" @click="onClick">
+  <div class="expense" @click="onClick" v-if="expense">
     <div class="expense-name">{{ expense.name }}</div>
     <div class="expense-total"><Currency :value="expense.total" /></div>
     <div class="expense-expanded" v-if="expanded">
